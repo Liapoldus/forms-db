@@ -8,8 +8,8 @@ import (
 	"syscall"
 
 	"github.com/Liapoldus/forms-db/internal/application"
-	"github.com/Liapoldus/forms-db/internal/infrastructure"
-	"github.com/Liapoldus/forms-db/internal/protocol"
+	"github.com/Liapoldus/forms-db/internal/infrastructure/storage"
+	"github.com/Liapoldus/forms-db/internal/presentation/plugin"
 	"github.com/Liapoldus/pluginprotocol/transport"
 )
 
@@ -23,8 +23,8 @@ func main() {
 	}
 	defer listener.Close()
 	var stop func()
-	plugin := protocol.NewServer(application.Service{Repository: infrastructure.NewMemoryRepository()}, func() { stop() })
-	server := transport.NewServer(plugin, transport.ServerOptions{})
+	pluginServer := plugin.NewServer(application.Service{Repository: storage.NewMemoryRepository()}, func() { stop() })
+	server := transport.NewServer(pluginServer, transport.ServerOptions{})
 	stop = server.GracefulStop
 	serveErr := make(chan error, 1)
 	go func() { serveErr <- server.Serve(listener) }()

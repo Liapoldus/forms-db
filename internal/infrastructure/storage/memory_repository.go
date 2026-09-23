@@ -1,24 +1,24 @@
-package infrastructure
+package storage
 
 import (
 	"context"
 	"errors"
 	"sync"
 
-	"github.com/Liapoldus/forms-db/internal/domain"
+	"github.com/Liapoldus/forms-db/internal/domain/models"
 )
 
 var ErrNotFound = errors.New("submission not found")
 
 type MemoryRepository struct {
 	mu          sync.Mutex
-	submissions []domain.Submission
+	submissions []models.Submission
 	nextID      int
 }
 
 func NewMemoryRepository() *MemoryRepository { return &MemoryRepository{nextID: 1} }
 
-func (r *MemoryRepository) Submit(_ context.Context, submission domain.Submission) (domain.Submission, error) {
+func (r *MemoryRepository) Submit(_ context.Context, submission models.Submission) (models.Submission, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if submission.ID == "" {
@@ -29,13 +29,13 @@ func (r *MemoryRepository) Submit(_ context.Context, submission domain.Submissio
 	return submission, nil
 }
 
-func (r *MemoryRepository) List(_ context.Context, site, schema string, limit int) ([]domain.Submission, error) {
+func (r *MemoryRepository) List(_ context.Context, site, schema string, limit int) ([]models.Submission, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if limit < 1 {
 		limit = 50
 	}
-	result := make([]domain.Submission, 0, limit)
+	result := make([]models.Submission, 0, limit)
 	for index := len(r.submissions) - 1; index >= 0 && len(result) < limit; index-- {
 		item := r.submissions[index]
 		if item.Site == site && item.Schema == schema {

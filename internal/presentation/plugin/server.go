@@ -1,6 +1,7 @@
-package protocol
+package plugin
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -8,9 +9,11 @@ import (
 	"time"
 
 	"github.com/Liapoldus/forms-db/internal/application"
-	"github.com/Liapoldus/forms-db/internal/config"
-	"github.com/Liapoldus/forms-db/internal/domain"
+	"github.com/Liapoldus/forms-db/internal/domain/models"
+	"github.com/Liapoldus/forms-db/internal/infrastructure/config"
 	"github.com/Liapoldus/pluginprotocol/pluginv1"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 const name = "forms-db"
@@ -43,7 +46,7 @@ func (s *Server) ConfigSchema(context.Context, *pluginv1.ConfigSchemaRequest) (*
 func (s *Server) ConfigApply(_ context.Context, request *pluginv1.ConfigApplyRequest) (*pluginv1.ConfigApplyResult, error) {
 	settings, err := config.Apply(request.GetConfig())
 	if err != nil {
-		return &pluginv1.ConfigApplyResult{Applied: false}, err
+		return &pluginv1.ConfigApplyResult{Applied: false}, status.Error(codes.InvalidArgument, "invalid forms-db settings")
 	}
 	s.mu.Lock()
 	s.config = settings
@@ -76,7 +79,7 @@ func (s *Server) Call(ctx context.Context, request *pluginv1.CallRequest) (*plug
 		if err := decodeObject(payload, &input); err != nil || input.Site == "" || input.SchemaName == "" || input.Data == nil {
 			return httpJSON(422, map[string]any{"code": "validation_failed"}), nil
 		}
-		item, err := s.service.Submit(ctx, domain.Submission{Site: input.Site, Schema: input.SchemaName, Data: input.Data, CreatedAt: time.Unix(0, 0).UTC().Format(time.RFC3339)})
+		item, err := s.service.Submit(ctx, models.Submission{Site: input.Site, Schema: input.SchemaName, Data: input.Data, CreatedAt: time.Unix(0, 0).UTC().Format(time.RFC3339)})
 		if err != nil {
 			return httpJSON(503, map[string]any{"code": "storage_unavailable"}), nil
 		}
@@ -133,17 +136,26 @@ func contextError(ctx context.Context) error {
 }
 
 func decodeObject(payload []byte, target any) error {
-	if len(payload) == 0 || payload[0] != '{' {
+	trimmed := bytes.TrimSpace(payload)
+	if len(trimmed) == 0 || trimmed[0] != '{' {
 		return errors.New("payload must be a JSON object")
 	}
-	return json.Unmarshal(payload, target)
+	decoder := json.NewDecoder(bytes.NewReader(trimmed))
+	decoder.DisallowUnknownFields()
+	return decoder.Decode(target)
 }
 
 func requestPayload(payload []byte) ([]byte, error) {
 	var envelope struct {
-		Body []byte `json:"body"`
+		Method     string            `json:"method"`
+		Path       string            `json:"path"`
+		Query      string            `json:"query"`
+		Headers    map[string]string `json:"headers"`
+		Body       []byte            `json:"body"`
+		RequestID  string            `json:"requestId"`
+		RemoteAddr string            `json:"remoteAddr"`
 	}
-	if err := json.Unmarshal(payload, &envelope); err == nil && envelope.Body != nil {
+	if err := decodeObject(payload, &envelope); err == nil && envelope.Body != nil {
 		return envelope.Body, nil
 	}
 	return payload, nil

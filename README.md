@@ -9,8 +9,9 @@ adapters are a later milestone.
 
 ## Local development
 
-The repository uses the sibling `pluginprotocol` checkout through the local
-`replace` in `go.mod`. Build and test with:
+The parent `plugins/go.work` connects local development to the sibling
+`pluginprotocol` checkout. A standalone clone uses the published module.
+Build and test with:
 
 ```bash
 go build ./...
@@ -27,3 +28,18 @@ Gateway smoke test (requires the sibling Gateway checkout):
 LIAPOLDUS_CORE_ROOT="../../core" ./tests/gateway_smoke.sh
 ```
 
+## Architecture
+
+```text
+cmd/forms-db/                    composition root
+internal/domain/models/          Submission
+internal/domain/interfaces/      Repository port
+internal/application/            form use cases
+internal/infrastructure/config/  settings parser and validation
+internal/infrastructure/storage/ deterministic repository adapter
+internal/presentation/plugin/    protocol and HTTP-envelope adapter
+tests/unit/                      unit and boundary tests
+tests/gateway_smoke.sh            Gateway integration fixture
+```
+
+Domain and application do not import protocol, Gateway or storage packages.

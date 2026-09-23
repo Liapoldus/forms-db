@@ -3,16 +3,17 @@ package application
 import (
 	"context"
 
-	"github.com/Liapoldus/forms-db/internal/domain"
+	"github.com/Liapoldus/forms-db/internal/domain/interfaces"
+	"github.com/Liapoldus/forms-db/internal/domain/models"
 )
 
-type Service struct{ Repository domain.Repository }
+type Service struct{ Repository interfaces.Repository }
 
-func (s Service) Submit(ctx context.Context, value domain.Submission) (domain.Submission, error) {
+func (s Service) Submit(ctx context.Context, value models.Submission) (models.Submission, error) {
 	return s.Repository.Submit(ctx, value)
 }
 
-func (s Service) List(ctx context.Context, site, schema string, limit int) ([]domain.Submission, error) {
+func (s Service) List(ctx context.Context, site, schema string, limit int) ([]models.Submission, error) {
 	return s.Repository.List(ctx, site, schema, limit)
 }
 

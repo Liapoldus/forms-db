@@ -1,4 +1,4 @@
-package protocol
+package unit
 
 import (
 	"context"
@@ -6,12 +6,13 @@ import (
 	"testing"
 
 	"github.com/Liapoldus/forms-db/internal/application"
-	"github.com/Liapoldus/forms-db/internal/infrastructure"
+	"github.com/Liapoldus/forms-db/internal/infrastructure/storage"
+	"github.com/Liapoldus/forms-db/internal/presentation/plugin"
 	"github.com/Liapoldus/pluginprotocol/pluginv1"
 )
 
 func TestServerManifestAndHealthSurface(t *testing.T) {
-	server := NewServer(application.Service{Repository: infrastructure.NewMemoryRepository()}, nil)
+	server := plugin.NewServer(application.Service{Repository: storage.NewMemoryRepository()}, nil)
 	manifest, err := server.Manifest(context.Background(), &pluginv1.ManifestRequest{})
 	if err != nil || manifest.GetName() != "forms-db" {
 		t.Fatalf("unexpected manifest: %#v, %v", manifest, err)
@@ -22,7 +23,7 @@ func TestServerManifestAndHealthSurface(t *testing.T) {
 }
 
 func TestServerSubmitUsesHTTPEnvelopeAndMemoryDouble(t *testing.T) {
-	server := NewServer(application.Service{Repository: infrastructure.NewMemoryRepository()}, nil)
+	server := plugin.NewServer(application.Service{Repository: storage.NewMemoryRepository()}, nil)
 	body, _ := json.Marshal(map[string]any{"site": "portal", "schemaName": "contact", "data": map[string]any{"name": "fixture"}})
 	envelope, _ := json.Marshal(map[string]any{"method": "POST", "path": "/forms", "body": body})
 	response, err := server.Call(context.Background(), &pluginv1.CallRequest{Capability: "forms.submit", Payload: envelope})
@@ -42,7 +43,7 @@ func TestServerSubmitUsesHTTPEnvelopeAndMemoryDouble(t *testing.T) {
 }
 
 func TestServerRejectsUnknownCapability(t *testing.T) {
-	server := NewServer(application.Service{Repository: infrastructure.NewMemoryRepository()}, nil)
+	server := plugin.NewServer(application.Service{Repository: storage.NewMemoryRepository()}, nil)
 	response, err := server.Call(context.Background(), &pluginv1.CallRequest{Capability: "forms.unknown", Payload: []byte(`{}`)})
 	if err != nil || response.GetCode() != "capability_not_found" {
 		t.Fatalf("unexpected rejection: %#v, %v", response, err)
