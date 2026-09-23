@@ -9,9 +9,9 @@ adapters are a later milestone.
 
 ## Local development
 
-The parent `plugins/go.work` connects local development to the sibling
-`pluginprotocol` checkout. A standalone clone uses the published module.
-Build and test with:
+The repository uses the sibling `pluginprotocol` checkout through the local
+`replace` in `go.mod`; `plugins/go.work` provides the shared workspace. Build
+and test with:
 
 ```bash
 go build ./...
