@@ -1,0 +1,65 @@
+package infrastructure
+
+import (
+	"context"
+	"errors"
+	"sync"
+
+	"github.com/Liapoldus/forms-db/internal/domain"
+)
+
+var ErrNotFound = errors.New("submission not found")
+
+type MemoryRepository struct {
+	mu          sync.Mutex
+	submissions []domain.Submission
+	nextID      int
+}
+
+func NewMemoryRepository() *MemoryRepository { return &MemoryRepository{nextID: 1} }
+
+func (r *MemoryRepository) Submit(_ context.Context, submission domain.Submission) (domain.Submission, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if submission.ID == "" {
+		submission.ID = "frm_skeleton_" + formatID(r.nextID)
+		r.nextID++
+	}
+	r.submissions = append(r.submissions, submission)
+	return submission, nil
+}
+
+func (r *MemoryRepository) List(_ context.Context, site, schema string, limit int) ([]domain.Submission, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if limit < 1 {
+		limit = 50
+	}
+	result := make([]domain.Submission, 0, limit)
+	for index := len(r.submissions) - 1; index >= 0 && len(result) < limit; index-- {
+		item := r.submissions[index]
+		if item.Site == site && item.Schema == schema {
+			result = append(result, item)
+		}
+	}
+	return result, nil
+}
+
+func (r *MemoryRepository) Delete(_ context.Context, id string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for index, item := range r.submissions {
+		if item.ID == id {
+			r.submissions = append(r.submissions[:index], r.submissions[index+1:]...)
+			return nil
+		}
+	}
+	return ErrNotFound
+}
+
+func formatID(value int) string {
+	if value < 10 {
+		return "00" + string(rune('0'+value))
+	}
+	return "0" + string(rune('0'+value/10)) + string(rune('0'+value%10))
+}
