@@ -29,4 +29,4 @@ for _ in $(seq 1 120); do
 done
 test "$READY" = 1
 response=$(curl -sS -X POST http://127.0.0.1:18101/smoke -H 'Content-Type: application/json' -d '{"site":"portal","schemaName":"contact","data":{"name":"fixture"}}')
-printf '%s' "$response" | grep -q 'frm_skeleton_'
+printf '%s' "$response" | grep -Eq '"id":"frm_[A-Za-z0-9_-]+"'
