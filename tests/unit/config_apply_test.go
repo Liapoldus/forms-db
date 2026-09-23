@@ -28,20 +28,24 @@ func TestConfigApplySwitchesToSQLiteAndRetainsActiveDatabaseOnFailure(t *testing
 	server := plugin.NewServerWithRepositoryBuilder(
 		application.Service{Repository: storage.NewMemoryRepository()}, builder, nil,
 	)
-	applySettings(t, server, fmt.Sprintf(`{"driver":"sqlite","dsn":%q,"tablePrefix":"form_"}`, databasePath))
+	applySettings(t, server, sqliteSettings(databasePath))
 
 	callFormCapability(t, server, "forms.submit", `{"site":"portal","schemaName":"contact","data":{"name":"persistent"}}`)
-	if _, err := server.ConfigApply(ctx, &pluginv1.ConfigApplyRequest{Config: []byte(fmt.Sprintf(`{"driver":"sqlite","dsn":%q,"tablePrefix":"form_"}`, t.TempDir()))}); err == nil {
+	if _, err := server.ConfigApply(ctx, &pluginv1.ConfigApplyRequest{Config: []byte(sqliteSettings(t.TempDir()))}); err == nil {
 		t.Fatal("invalid database config must not replace the active repository")
 	}
 	if count := listFormSubmissions(t, server); count != 1 {
 		t.Fatalf("failed config apply changed the active database: count=%d", count)
 	}
 
-	applySettings(t, server, fmt.Sprintf(`{"driver":"sqlite","dsn":%q,"tablePrefix":"form_"}`, databasePath))
+	applySettings(t, server, sqliteSettings(databasePath))
 	if count := listFormSubmissions(t, server); count != 1 {
 		t.Fatalf("reopening the configured database lost data: count=%d", count)
 	}
+}
+
+func sqliteSettings(dsn string) string {
+	return fmt.Sprintf(`{"driver":"sqlite","dsn":%q,"tablePrefix":"form_","schemas":{"contact":{"type":"object","properties":{"name":{"type":"string"}},"required":["name"],"additionalProperties":false}}}`, dsn)
 }
 
 func applySettings(t *testing.T, server *plugin.Server, settings string) {
@@ -79,7 +83,7 @@ func listFormSubmissions(t *testing.T, server *plugin.Server) int {
 		t.Fatal(err)
 	}
 	var httpResponse struct {
-		Status int `json:"status"`
+		Status int    `json:"status"`
 		Body   []byte `json:"body"`
 	}
 	if err := json.Unmarshal(response.GetPayload(), &httpResponse); err != nil {
