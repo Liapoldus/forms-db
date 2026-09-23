@@ -4,6 +4,7 @@ go 1.24.1
 
 require (
 	github.com/Liapoldus/pluginprotocol v1.1.0
+	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2
 	google.golang.org/grpc v1.80.0
 	modernc.org/sqlite v1.40.1
 )

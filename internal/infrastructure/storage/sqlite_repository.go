@@ -102,21 +102,32 @@ func (r *SQLiteRepository) Submit(ctx context.Context, submission models.Submiss
 	return submission, nil
 }
 
-func (r *SQLiteRepository) List(ctx context.Context, site, schema string, limit int) ([]models.Submission, error) {
+func (r *SQLiteRepository) List(ctx context.Context, site, schema string, filter *models.SubmissionFilter, limit int) ([]models.Submission, error) {
 	if limit < 1 {
 		limit = 50
 	}
 	if limit > 100 {
 		limit = 100
 	}
-	rows, err := r.db.QueryContext(ctx,
-		fmt.Sprintf("SELECT %s, %s, %s, %s, %s FROM %s WHERE %s = ? AND %s = ? ORDER BY %s DESC, %s DESC LIMIT ?",
-			quoteIdentifier(r.contract.Columns.ID), quoteIdentifier(r.contract.Columns.CreatedAt), quoteIdentifier(r.contract.Columns.Site),
-			quoteIdentifier(r.contract.Columns.SchemaName), quoteIdentifier(r.contract.Columns.DataJSON), r.submissionsTable,
-			quoteIdentifier(r.contract.Columns.Site), quoteIdentifier(r.contract.Columns.SchemaName),
-			quoteIdentifier(r.contract.Columns.CreatedAt), quoteIdentifier(r.contract.Columns.ID)),
-		site, schema, limit,
-	)
+	query := fmt.Sprintf("SELECT %s, %s, %s, %s, %s FROM %s WHERE %s = ? AND %s = ?",
+		quoteIdentifier(r.contract.Columns.ID), quoteIdentifier(r.contract.Columns.CreatedAt), quoteIdentifier(r.contract.Columns.Site),
+		quoteIdentifier(r.contract.Columns.SchemaName), quoteIdentifier(r.contract.Columns.DataJSON), r.submissionsTable,
+		quoteIdentifier(r.contract.Columns.Site), quoteIdentifier(r.contract.Columns.SchemaName))
+	arguments := []any{site, schema}
+	if filter != nil {
+		fieldJSON, err := json.Marshal(filter.Field)
+		if err != nil {
+			return nil, errors.New("encode submission filter")
+		}
+		dataColumn := quoteIdentifier(r.contract.Columns.DataJSON)
+		query += fmt.Sprintf(" AND json_type(%s, ?) IS NOT NULL AND json_extract(%s, ?) IS json_extract(?, '$')", dataColumn, dataColumn)
+		path := "$." + string(fieldJSON)
+		arguments = append(arguments, path, path, string(filter.Equals))
+	}
+	query += fmt.Sprintf(" ORDER BY %s DESC, %s DESC LIMIT ?",
+		quoteIdentifier(r.contract.Columns.CreatedAt), quoteIdentifier(r.contract.Columns.ID))
+	arguments = append(arguments, limit)
+	rows, err := r.db.QueryContext(ctx, query, arguments...)
 	if err != nil {
 		return nil, errors.New("list submissions")
 	}

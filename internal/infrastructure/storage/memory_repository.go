@@ -2,7 +2,9 @@ package storage
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"reflect"
 	"sync"
 	"time"
 
@@ -37,7 +39,7 @@ func (r *MemoryRepository) Submit(_ context.Context, submission models.Submissio
 
 func (r *MemoryRepository) Close() error { return nil }
 
-func (r *MemoryRepository) List(_ context.Context, site, schema string, limit int) ([]models.Submission, error) {
+func (r *MemoryRepository) List(_ context.Context, site, schema string, filter *models.SubmissionFilter, limit int) ([]models.Submission, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if limit < 1 {
@@ -46,11 +48,26 @@ func (r *MemoryRepository) List(_ context.Context, site, schema string, limit in
 	result := make([]models.Submission, 0, limit)
 	for index := len(r.submissions) - 1; index >= 0 && len(result) < limit; index-- {
 		item := r.submissions[index]
-		if item.Site == site && item.Schema == schema {
+		if item.Site == site && item.Schema == schema && matchesFilter(item, filter) {
 			result = append(result, item)
 		}
 	}
 	return result, nil
+}
+
+func matchesFilter(item models.Submission, filter *models.SubmissionFilter) bool {
+	if filter == nil {
+		return true
+	}
+	actual, exists := item.Data[filter.Field]
+	if !exists {
+		return false
+	}
+	var expected any
+	if json.Unmarshal(filter.Equals, &expected) != nil {
+		return false
+	}
+	return reflect.DeepEqual(actual, expected)
 }
 
 func (r *MemoryRepository) Delete(_ context.Context, site, schema, id string) error {

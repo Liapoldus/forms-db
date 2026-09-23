@@ -13,8 +13,8 @@ func (s Service) Submit(ctx context.Context, value models.Submission) (models.Su
 	return s.Repository.Submit(ctx, value)
 }
 
-func (s Service) List(ctx context.Context, site, schema string, limit int) ([]models.Submission, error) {
-	return s.Repository.List(ctx, site, schema, limit)
+func (s Service) List(ctx context.Context, site, schema string, filter *models.SubmissionFilter, limit int) ([]models.Submission, error) {
+	return s.Repository.List(ctx, site, schema, filter, limit)
 }
 
 func (s Service) Delete(ctx context.Context, site, schema, id string) error {

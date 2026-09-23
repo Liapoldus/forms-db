@@ -12,6 +12,8 @@ import (
 	"github.com/Liapoldus/forms-db/internal/domain/interfaces"
 	"github.com/Liapoldus/forms-db/internal/domain/models"
 	"github.com/Liapoldus/forms-db/internal/infrastructure/config"
+	"github.com/Liapoldus/forms-db/internal/infrastructure/contracts"
+	"github.com/Liapoldus/pluginprotocol"
 	"github.com/Liapoldus/pluginprotocol/pluginv1"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -46,7 +48,7 @@ func NewServerWithRepositoryBuilder(service application.Service, builder Reposit
 }
 
 func (s *Server) Manifest(context.Context, *pluginv1.ManifestRequest) (*pluginv1.Manifest, error) {
-	return &pluginv1.Manifest{Name: name, ProtocolVersion: "liapoldus.plugin.v1", Capabilities: []string{"forms.submit", "forms.list", "forms.delete", "admin.surface.get"}}, nil
+	return &pluginv1.Manifest{Name: name, ProtocolVersion: pluginprotocol.ProtocolVersion, Capabilities: []string{"forms.submit", "forms.list", "forms.delete", "admin.surface.get"}}, nil
 }
 
 func (s *Server) ConfigSchema(context.Context, *pluginv1.ConfigSchemaRequest) (*pluginv1.ConfigSchema, error) {
@@ -100,7 +102,9 @@ func (s *Server) Call(ctx context.Context, request *pluginv1.CallRequest) (*plug
 	if err := contextError(ctx); err != nil {
 		return nil, err
 	}
-	service := s.currentService()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	service, settings := s.service, s.config
 	switch request.GetCapability() {
 	case "forms.submit":
 		payload, err := requestPayload(request.GetPayload())
@@ -113,6 +117,9 @@ func (s *Server) Call(ctx context.Context, request *pluginv1.CallRequest) (*plug
 			Data       map[string]any `json:"data"`
 		}
 		if err := decodeObject(payload, &input); err != nil || input.Site == "" || input.SchemaName == "" || input.Data == nil {
+			return httpJSON(422, map[string]any{"code": "validation_failed"}), nil
+		}
+		if err := settings.ValidateSubmissionData(input.SchemaName, input.Data); err != nil {
 			return httpJSON(422, map[string]any{"code": "validation_failed"}), nil
 		}
 		item, err := service.Submit(ctx, models.Submission{Site: input.Site, Schema: input.SchemaName, Data: input.Data})
@@ -128,12 +135,30 @@ func (s *Server) Call(ctx context.Context, request *pluginv1.CallRequest) (*plug
 		var input struct {
 			Site       string `json:"site"`
 			SchemaName string `json:"schemaName"`
-			Limit      int    `json:"limit"`
+			Limit      *int   `json:"limit"`
+			Filter     *struct {
+				Field  string          `json:"field"`
+				Equals json.RawMessage `json:"equals"`
+			} `json:"filter"`
 		}
-		if err := decodeObject(payload, &input); err != nil || input.Site == "" || input.SchemaName == "" {
+		if err := decodeObject(payload, &input); err != nil || input.Site == "" || input.SchemaName == "" || !settings.HasSchema(input.SchemaName) {
 			return httpJSON(422, map[string]any{"code": "validation_failed"}), nil
 		}
-		items, err := service.List(ctx, input.Site, input.SchemaName, input.Limit)
+		var filter *models.SubmissionFilter
+		if input.Filter != nil {
+			if input.Filter.Field == "" || len(input.Filter.Equals) == 0 || !json.Valid(input.Filter.Equals) || !settings.AllowsFilterField(input.SchemaName, input.Filter.Field) {
+				return httpJSON(422, map[string]any{"code": "validation_failed"}), nil
+			}
+			filter = &models.SubmissionFilter{Field: input.Filter.Field, Equals: input.Filter.Equals}
+		}
+		limit := 50
+		if input.Limit != nil {
+			if *input.Limit < 1 || *input.Limit > 100 {
+				return httpJSON(422, map[string]any{"code": "validation_failed"}), nil
+			}
+			limit = *input.Limit
+		}
+		items, err := service.List(ctx, input.Site, input.SchemaName, filter, limit)
 		if err != nil {
 			return httpJSON(503, map[string]any{"code": "storage_unavailable"}), nil
 		}
@@ -159,16 +184,14 @@ func (s *Server) Call(ctx context.Context, request *pluginv1.CallRequest) (*plug
 		}
 		return httpJSON(200, map[string]any{"deleted": true, "id": input.ID}), nil
 	case "admin.surface.get":
-		return httpJSON(200, map[string]any{"version": 1, "plugin": name, "requiredCapabilities": []string{"admin.surface.get", "forms.list", "forms.delete"}, "pages": []any{}}), nil
+		surface, err := contracts.AdminSurface()
+		if err != nil {
+			return nil, status.Error(codes.Internal, "admin surface contract is unavailable")
+		}
+		return &pluginv1.CallResponse{Payload: surface}, nil
 	default:
 		return rejected("capability_not_found", "capability is not declared by forms-db"), nil
 	}
-}
-
-func (s *Server) currentService() application.Service {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return s.service
 }
 
 func contextError(ctx context.Context) error {

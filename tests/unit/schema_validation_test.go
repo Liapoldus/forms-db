@@ -3,6 +3,7 @@ package unit
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"testing"
 
 	"github.com/Liapoldus/forms-db/internal/application"
@@ -27,6 +28,44 @@ func TestConfigApplyCompilesSchemasAndSubmitValidatesData(t *testing.T) {
 	assertSubmitStatus(t, server, `{"site":"portal","schemaName":"contact","data":{"name":"missing email"}}`, 422)
 	assertSubmitStatus(t, server, `{"site":"portal","schemaName":"contact","data":{"email":"user@example.com","unexpected":true}}`, 422)
 	assertSubmitStatus(t, server, `{"site":"portal","schemaName":"contact","data":{"email":"user@example.com"}}`, 200)
+}
+
+func TestConfigApplyRejectsExternalSchemaReferences(t *testing.T) {
+	server := plugin.NewServer(application.Service{Repository: storage.NewMemoryRepository()}, nil)
+	settings := []byte(`{"schemas":{"contact":{"$schema":"https://json-schema.org/draft/2020-12/schema","$ref":"https://schemas.example.invalid/contact.json"}}}`)
+	result, err := server.ConfigApply(context.Background(), &pluginv1.ConfigApplyRequest{Config: settings})
+	if err == nil || result.GetApplied() {
+		t.Fatalf("external schema references must be rejected without loading resources: result=%#v err=%v", result, err)
+	}
+}
+
+func TestSubmitRejectsMorePropertiesThanThePayloadContractAllows(t *testing.T) {
+	server := plugin.NewServer(application.Service{Repository: storage.NewMemoryRepository()}, nil)
+	settings := []byte(`{"schemas":{"contact":{"type":"object"}}}`)
+	if result, err := server.ConfigApply(context.Background(), &pluginv1.ConfigApplyRequest{Config: settings}); err != nil || !result.GetApplied() {
+		t.Fatalf("valid schema config was not applied: result=%#v err=%v", result, err)
+	}
+	data := make(map[string]any, 257)
+	for index := 0; index < 257; index++ {
+		data[fmt.Sprintf("field%d", index)] = index
+	}
+	payload, err := json.Marshal(map[string]any{"site": "portal", "schemaName": "contact", "data": data})
+	if err != nil {
+		t.Fatal(err)
+	}
+	response, err := server.Call(context.Background(), &pluginv1.CallRequest{Capability: "forms.submit", Payload: payload})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var envelope struct {
+		Status int `json:"status"`
+	}
+	if err := json.Unmarshal(response.GetPayload(), &envelope); err != nil {
+		t.Fatal(err)
+	}
+	if envelope.Status != 422 {
+		t.Fatalf("submission above the payload property limit must be rejected: status=%d", envelope.Status)
+	}
 }
 
 func assertSubmitStatus(t *testing.T, server *plugin.Server, payload string, expected int) {

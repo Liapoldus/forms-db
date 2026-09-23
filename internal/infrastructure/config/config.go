@@ -4,13 +4,17 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+
+	"github.com/santhosh-tekuri/jsonschema/v6"
 )
 
 type Settings struct {
-	Driver      string                     `json:"driver"`
-	DSN         string                     `json:"dsn"`
-	TablePrefix string                     `json:"tablePrefix"`
-	Schemas     map[string]json.RawMessage `json:"schemas"`
+	Driver          string                     `json:"driver"`
+	DSN             string                     `json:"dsn"`
+	TablePrefix     string                     `json:"tablePrefix"`
+	Schemas         map[string]json.RawMessage `json:"schemas"`
+	compiledSchemas map[string]*jsonschema.Schema
+	maxProperties   int
 }
 
 func Apply(raw []byte) (Settings, error) {
@@ -32,5 +36,11 @@ func Apply(raw []byte) (Settings, error) {
 	if settings.Driver != "memory" && settings.Driver != "sqlite" && settings.Driver != "postgres" && settings.Driver != "mysql" {
 		return Settings{}, errors.New("driver must be memory, sqlite, postgres, or mysql")
 	}
+	compiledSchemas, maxProperties, err := compileSchemas(settings.Schemas)
+	if err != nil {
+		return Settings{}, err
+	}
+	settings.compiledSchemas = compiledSchemas
+	settings.maxProperties = maxProperties
 	return settings, nil
 }
