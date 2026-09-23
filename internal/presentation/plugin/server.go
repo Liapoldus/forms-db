@@ -5,9 +5,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"sync"
 
 	"github.com/Liapoldus/forms-db/internal/application"
+	"github.com/Liapoldus/forms-db/internal/domain/interfaces"
 	"github.com/Liapoldus/forms-db/internal/domain/models"
 	"github.com/Liapoldus/forms-db/internal/infrastructure/config"
 	"github.com/Liapoldus/pluginprotocol/pluginv1"
@@ -19,14 +21,28 @@ const name = "forms-db"
 
 type Server struct {
 	pluginv1.UnimplementedPluginServiceServer
-	mu      sync.RWMutex
-	config  config.Settings
-	service application.Service
-	stop    func()
+	mu                sync.RWMutex
+	config            config.Settings
+	service           application.Service
+	activeRepository  interfaces.Repository
+	repositoryBuilder RepositoryBuilder
+	stop              func()
 }
 
+type RepositoryBuilder func(context.Context, config.Settings) (interfaces.Repository, error)
+
 func NewServer(service application.Service, stop func()) *Server {
-	return &Server{config: config.Settings{Driver: "memory", TablePrefix: "form_"}, service: service, stop: stop}
+	return NewServerWithRepositoryBuilder(service, nil, stop)
+}
+
+func NewServerWithRepositoryBuilder(service application.Service, builder RepositoryBuilder, stop func()) *Server {
+	return &Server{
+		config:            config.Settings{Driver: "memory", TablePrefix: "form_"},
+		service:           service,
+		activeRepository:  service.Repository,
+		repositoryBuilder: builder,
+		stop:              stop,
+	}
 }
 
 func (s *Server) Manifest(context.Context, *pluginv1.ManifestRequest) (*pluginv1.Manifest, error) {
@@ -42,14 +58,34 @@ func (s *Server) ConfigSchema(context.Context, *pluginv1.ConfigSchemaRequest) (*
 	}}, nil
 }
 
-func (s *Server) ConfigApply(_ context.Context, request *pluginv1.ConfigApplyRequest) (*pluginv1.ConfigApplyResult, error) {
+func (s *Server) ConfigApply(ctx context.Context, request *pluginv1.ConfigApplyRequest) (*pluginv1.ConfigApplyResult, error) {
 	settings, err := config.Apply(request.GetConfig())
 	if err != nil {
 		return &pluginv1.ConfigApplyResult{Applied: false}, status.Error(codes.InvalidArgument, "invalid forms-db settings")
 	}
+	var nextRepository interfaces.Repository
+	if s.repositoryBuilder != nil {
+		nextRepository, err = s.repositoryBuilder(ctx, settings)
+		if err != nil {
+			return &pluginv1.ConfigApplyResult{Applied: false}, status.Error(codes.InvalidArgument, "forms-db storage is unavailable")
+		}
+	} else if settings.Driver != "memory" {
+		return &pluginv1.ConfigApplyResult{Applied: false}, status.Error(codes.InvalidArgument, "forms-db storage driver is unavailable")
+	}
+
 	s.mu.Lock()
+	previousRepository := s.activeRepository
+	if nextRepository != nil {
+		s.service.Repository = nextRepository
+		s.activeRepository = nextRepository
+	}
 	s.config = settings
 	s.mu.Unlock()
+	if previousRepository != nextRepository {
+		if closer, ok := previousRepository.(io.Closer); ok {
+			_ = closer.Close()
+		}
+	}
 	return &pluginv1.ConfigApplyResult{Applied: true}, nil
 }
 
@@ -64,6 +100,7 @@ func (s *Server) Call(ctx context.Context, request *pluginv1.CallRequest) (*plug
 	if err := contextError(ctx); err != nil {
 		return nil, err
 	}
+	service := s.currentService()
 	switch request.GetCapability() {
 	case "forms.submit":
 		payload, err := requestPayload(request.GetPayload())
@@ -78,7 +115,7 @@ func (s *Server) Call(ctx context.Context, request *pluginv1.CallRequest) (*plug
 		if err := decodeObject(payload, &input); err != nil || input.Site == "" || input.SchemaName == "" || input.Data == nil {
 			return httpJSON(422, map[string]any{"code": "validation_failed"}), nil
 		}
-		item, err := s.service.Submit(ctx, models.Submission{Site: input.Site, Schema: input.SchemaName, Data: input.Data})
+		item, err := service.Submit(ctx, models.Submission{Site: input.Site, Schema: input.SchemaName, Data: input.Data})
 		if err != nil {
 			return httpJSON(503, map[string]any{"code": "storage_unavailable"}), nil
 		}
@@ -96,7 +133,7 @@ func (s *Server) Call(ctx context.Context, request *pluginv1.CallRequest) (*plug
 		if err := decodeObject(payload, &input); err != nil || input.Site == "" || input.SchemaName == "" {
 			return httpJSON(422, map[string]any{"code": "validation_failed"}), nil
 		}
-		items, err := s.service.List(ctx, input.Site, input.SchemaName, input.Limit)
+		items, err := service.List(ctx, input.Site, input.SchemaName, input.Limit)
 		if err != nil {
 			return httpJSON(503, map[string]any{"code": "storage_unavailable"}), nil
 		}
@@ -117,7 +154,7 @@ func (s *Server) Call(ctx context.Context, request *pluginv1.CallRequest) (*plug
 		if input.Site == "" || input.SchemaName == "" {
 			return httpJSON(422, map[string]any{"code": "validation_failed"}), nil
 		}
-		if err := s.service.Delete(ctx, input.Site, input.SchemaName, input.ID); err != nil {
+		if err := service.Delete(ctx, input.Site, input.SchemaName, input.ID); err != nil {
 			return httpJSON(404, map[string]any{"code": "not_found"}), nil
 		}
 		return httpJSON(200, map[string]any{"deleted": true, "id": input.ID}), nil
@@ -126,6 +163,12 @@ func (s *Server) Call(ctx context.Context, request *pluginv1.CallRequest) (*plug
 	default:
 		return rejected("capability_not_found", "capability is not declared by forms-db"), nil
 	}
+}
+
+func (s *Server) currentService() application.Service {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.service
 }
 
 func contextError(ctx context.Context) error {

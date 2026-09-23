@@ -1,11 +1,13 @@
 # forms-db
 
-Runnable skeleton for the Liapoldus `forms-db` plugin.
+Runnable implementation increment for the Liapoldus `forms-db` plugin.
 
 The process owns the `forms.submit`, `forms.list`, `forms.delete` and
-`admin.surface.get` capability names, but the persistence implementation is
-intentionally a deterministic in-memory double. SQLite/PostgreSQL/MySQL
-adapters are a later milestone.
+`admin.surface.get` capability names. `ConfigApply` can select a persistent
+SQLite repository; PostgreSQL/MySQL adapters, schema-based validation,
+contract-complete cursors/filters, and the declarative admin surface remain
+unfinished. The memory repository remains available for deterministic smoke
+tests only.
 
 ## Local development
 
@@ -36,7 +38,7 @@ internal/domain/models/          Submission
 internal/domain/interfaces/      Repository port
 internal/application/            form use cases
 internal/infrastructure/config/  settings parser and validation
-internal/infrastructure/storage/ deterministic repository adapter
+internal/infrastructure/storage/ SQLite and deterministic memory repositories
 internal/presentation/plugin/    protocol and HTTP-envelope adapter
 tests/unit/                      unit and boundary tests
 tests/gateway_smoke.sh            Gateway integration fixture
