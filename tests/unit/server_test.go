@@ -24,6 +24,10 @@ func TestServerManifestAndHealthSurface(t *testing.T) {
 
 func TestServerSubmitUsesHTTPEnvelopeAndMemoryDouble(t *testing.T) {
 	server := plugin.NewServer(application.Service{Repository: storage.NewMemoryRepository()}, nil)
+	settings := []byte(`{"schemas":{"contact":{"type":"object","properties":{"name":{"type":"string"}},"required":["name"],"additionalProperties":false}}}`)
+	if result, err := server.ConfigApply(context.Background(), &pluginv1.ConfigApplyRequest{Config: settings}); err != nil || !result.GetApplied() {
+		t.Fatalf("valid schema config was not applied: result=%#v err=%v", result, err)
+	}
 	body, _ := json.Marshal(map[string]any{"site": "portal", "schemaName": "contact", "data": map[string]any{"name": "fixture"}})
 	envelope, _ := json.Marshal(map[string]any{"method": "POST", "path": "/forms", "body": body})
 	response, err := server.Call(context.Background(), &pluginv1.CallRequest{Capability: "forms.submit", Payload: envelope})
