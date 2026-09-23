@@ -17,4 +17,6 @@ func (s Service) List(ctx context.Context, site, schema string, limit int) ([]mo
 	return s.Repository.List(ctx, site, schema, limit)
 }
 
-func (s Service) Delete(ctx context.Context, id string) error { return s.Repository.Delete(ctx, id) }
+func (s Service) Delete(ctx context.Context, site, schema, id string) error {
+	return s.Repository.Delete(ctx, site, schema, id)
+}

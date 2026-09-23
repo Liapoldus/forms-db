@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"sync"
-	"time"
 
 	"github.com/Liapoldus/forms-db/internal/application"
 	"github.com/Liapoldus/forms-db/internal/domain/models"
@@ -79,7 +78,7 @@ func (s *Server) Call(ctx context.Context, request *pluginv1.CallRequest) (*plug
 		if err := decodeObject(payload, &input); err != nil || input.Site == "" || input.SchemaName == "" || input.Data == nil {
 			return httpJSON(422, map[string]any{"code": "validation_failed"}), nil
 		}
-		item, err := s.service.Submit(ctx, models.Submission{Site: input.Site, Schema: input.SchemaName, Data: input.Data, CreatedAt: time.Unix(0, 0).UTC().Format(time.RFC3339)})
+		item, err := s.service.Submit(ctx, models.Submission{Site: input.Site, Schema: input.SchemaName, Data: input.Data})
 		if err != nil {
 			return httpJSON(503, map[string]any{"code": "storage_unavailable"}), nil
 		}
@@ -115,7 +114,10 @@ func (s *Server) Call(ctx context.Context, request *pluginv1.CallRequest) (*plug
 		if err := decodeObject(payload, &input); err != nil || input.ID == "" {
 			return httpJSON(422, map[string]any{"code": "validation_failed"}), nil
 		}
-		if err := s.service.Delete(ctx, input.ID); err != nil {
+		if input.Site == "" || input.SchemaName == "" {
+			return httpJSON(422, map[string]any{"code": "validation_failed"}), nil
+		}
+		if err := s.service.Delete(ctx, input.Site, input.SchemaName, input.ID); err != nil {
 			return httpJSON(404, map[string]any{"code": "not_found"}), nil
 		}
 		return httpJSON(200, map[string]any{"deleted": true, "id": input.ID}), nil
