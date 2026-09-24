@@ -48,7 +48,20 @@ func NewServerWithRepositoryBuilder(service application.Service, builder Reposit
 }
 
 func (s *Server) Manifest(context.Context, *pluginv1.ManifestRequest) (*pluginv1.Manifest, error) {
-	return &pluginv1.Manifest{Name: name, ProtocolVersion: pluginprotocol.ProtocolVersion, Capabilities: []string{"forms.submit", "forms.list", "forms.delete", "admin.surface.get"}}, nil
+	capabilities := []string{"forms.submit", "forms.list", "forms.delete", "admin.surface.get"}
+	descriptors := make([]*pluginv1.CapabilityDescriptor, 0, len(capabilities))
+	for _, capability := range capabilities {
+		descriptors = append(descriptors, &pluginv1.CapabilityDescriptor{
+			Capability: capability,
+			Modes:      []pluginv1.InvocationMode{pluginv1.InvocationMode_INVOCATION_MODE_CALL},
+		})
+	}
+	return &pluginv1.Manifest{
+		Name:                  name,
+		ProtocolVersion:       pluginprotocol.ProtocolVersion,
+		Capabilities:          capabilities,
+		CapabilityDescriptors: descriptors,
+	}, nil
 }
 
 func (s *Server) ConfigSchema(context.Context, *pluginv1.ConfigSchemaRequest) (*pluginv1.ConfigSchema, error) {
