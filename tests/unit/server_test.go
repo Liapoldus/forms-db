@@ -22,6 +22,46 @@ func TestServerManifestAndHealthSurface(t *testing.T) {
 	}
 }
 
+func TestServerManifestDeclaresCallModeForEveryCapability(t *testing.T) {
+	server := plugin.NewServer(application.Service{Repository: storage.NewMemoryRepository()}, nil)
+	manifest, err := server.Manifest(context.Background(), &pluginv1.ManifestRequest{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	descriptors := manifest.GetCapabilityDescriptors()
+	if len(descriptors) != len(manifest.GetCapabilities()) {
+		t.Fatalf("manifest has %d capabilities but %d descriptors", len(manifest.GetCapabilities()), len(descriptors))
+	}
+
+	modesByCapability := make(map[string][]pluginv1.InvocationMode, len(descriptors))
+	for _, descriptor := range descriptors {
+		if descriptor == nil {
+			t.Fatal("manifest contains a nil capability descriptor")
+		}
+		capability := descriptor.GetCapability()
+		if _, exists := modesByCapability[capability]; exists {
+			t.Fatalf("manifest contains duplicate descriptor for %q", capability)
+		}
+		modesByCapability[capability] = descriptor.GetModes()
+	}
+
+	for _, capability := range manifest.GetCapabilities() {
+		modes, exists := modesByCapability[capability]
+		if !exists {
+			t.Errorf("capability %q has no invocation descriptor", capability)
+			continue
+		}
+		if len(modes) != 1 || modes[0] != pluginv1.InvocationMode_INVOCATION_MODE_CALL {
+			t.Errorf("capability %q has unexpected invocation modes: %v", capability, modes)
+		}
+		delete(modesByCapability, capability)
+	}
+	for capability := range modesByCapability {
+		t.Errorf("manifest describes undeclared capability %q", capability)
+	}
+}
+
 func TestServerSubmitUsesHTTPEnvelopeAndMemoryDouble(t *testing.T) {
 	server := plugin.NewServer(application.Service{Repository: storage.NewMemoryRepository()}, nil)
 	settings := []byte(`{"schemas":{"contact":{"type":"object","properties":{"name":{"type":"string"}},"required":["name"],"additionalProperties":false}}}`)
