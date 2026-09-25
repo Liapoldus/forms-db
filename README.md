@@ -6,10 +6,11 @@
 конфигурации JSON Schema Draft 2020-12 реализована. Схемы пока не сохраняются в
 БД и должны приходить при каждом применении конфигурации. Equality-фильтры по
 разрешённым верхнеуровневым полям активной schema и HMAC-protected cursor
-pagination реализованы. PostgreSQL/MySQL и полное выполнение
-declarative admin actions ещё не готовы. `admin.surface.get` возвращает
-read-only contract из `pluginprotocol`. Memory repository оставлен для
-детерминированных smoke-тестов.
+pagination реализованы. Для постоянного хранилища поддерживаются SQLite,
+PostgreSQL и MySQL; MySQL-совместимость проверена также на MariaDB. Полное
+выполнение declarative admin actions ещё не готово. `admin.surface.get`
+возвращает read-only contract из `pluginprotocol`. Memory repository оставлен
+для детерминированных smoke-тестов.
 
 ## Семантика пагинации по cursor
 
