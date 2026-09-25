@@ -29,9 +29,31 @@
 
 ## Осталось
 
-- Сверить admin actions с актуальным контрактом `pluginprotocol` и реализовать
-  только объявленные им безопасные операции, сохраняя проверку actor/capability,
-  audit/redaction и storage limits.
+- **Blocker: admin action invocation ещё не имеет полного protocol-контракта.**
+  Единственный forms-db action в
+  `pluginprotocol/contracts/forms-db/v1/admin-surface.json` — `delete`, который
+  ссылается на `forms.delete` и помечен `dangerous: true`. Общая схема
+  `pluginprotocol/contracts/admin-ui/v1/schema.json` задаёт Gateway URL
+  `/api/plugins/{instance}/admin/pages/{page}/actions/{action}` и общую проверку
+  capability, но не задаёт request/response schema, формат ошибок или точную
+  семантику удаления для `forms.delete`. Текущий Go handler принимает
+  `site`/`schemaName`/`id`, отвечает `deleted`/`id` или `not_found`, но это пока
+  реализация без подтверждающего versioned contract; не считать её нормативной
+  и не расширять, пока владелец `pluginprotocol` не закрепит payload и ответы.
+  Нужны schema/vector/error contract и решение, должна ли повторная попытка
+  удаления отсутствующей записи оставаться `not_found`.
+- **Blocker: форма настроек admin surface ссылается на control RPC.** Страница
+  `storage` использует `capability: "config.schema"`, однако `ConfigSchema` и
+  `ConfigApply` — typed control RPC, а не capability в Manifest/Call. Общий
+  admin UI contract не объясняет, как Gateway/Constructor должны отобразить
+  такую страницу и отправить изменения. Не добавлять `config.schema` в Manifest
+  и не превращать control RPC в `Call`, пока protocol contract не задаст явное
+  отображение.
+- Добавить в `pluginprotocol` недостающие нормативные admin-surface invocation
+  contracts, после чего реализовать и протестировать подтверждённые actions,
+  сохраняя Gateway-owned authorization/audit, plugin storage limits и
+  redaction. До этого текущие `forms.list`/`forms.delete` runtime semantics не
+  расширять и не обещать полную исполнимость admin UI.
 - Расширить Gateway smoke так, чтобы он проверял SQL-backed работу с общей БД
   при нескольких plugin replicas и rotation внешнего cursor secret.
 - Зафиксировать канонический Git remote для этого репозитория и выполнить push
