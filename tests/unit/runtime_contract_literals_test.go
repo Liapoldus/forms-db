@@ -99,3 +99,42 @@ func TestCursorSecurityAssetMatchesImplementedAlgorithms(t *testing.T) {
 		t.Fatalf("cursor contract algorithms do not match the implemented authenticated-encryption profile")
 	}
 }
+
+func TestCursorSecurityAssetDocumentsWireFormatAndTimeUnits(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("..", "..", "internal", "infrastructure", "security", "contracts", "cursor.json"))
+	if err != nil {
+		t.Fatal("read cursor security contract")
+	}
+	var contract struct {
+		TokenLayout         []string          `json:"tokenLayout"`
+		ClaimsEncoding      string            `json:"claimsEncoding"`
+		TimestampUnit       string            `json:"timestampUnit"`
+		AuthenticatedBytes  string            `json:"authenticatedBytes"`
+		AEADAdditionalData  string            `json:"aeadAdditionalData"`
+		ScopeDigestInput    string            `json:"scopeDigestInput"`
+		ScopeDigestEncoding string            `json:"scopeDigestEncoding"`
+		ClaimSemantics      map[string]string `json:"claimSemantics"`
+		ExpiryRule          string            `json:"expiryRule"`
+		KeyDerivation       map[string]string `json:"keyDerivation"`
+	}
+	if err := json.Unmarshal(data, &contract); err != nil {
+		t.Fatal("decode cursor security contract")
+	}
+	expectedLayout := []string{"version", "nonce", "ciphertext", "authenticator"}
+	if strings.Join(contract.TokenLayout, ",") != strings.Join(expectedLayout, ",") ||
+		contract.ClaimsEncoding != "UTF-8 JSON object" || contract.TimestampUnit != "Unix nanoseconds" ||
+		contract.AuthenticatedBytes != "version || nonce || ciphertext" || contract.AEADAdditionalData != "version byte" ||
+		contract.ScopeDigestInput != "canonical JSON object of site, schemaName, and filter; absent filter is null; filter fields are field and equals" ||
+		contract.ScopeDigestEncoding != "base64url without padding" ||
+		contract.ExpiryRule != "issuedAt <= now < expiresAt and expiresAt - issuedAt equals lifetimeSeconds in timestampUnit" {
+		t.Fatal("cursor contract does not fully specify token framing, scope, or timestamp units")
+	}
+	for _, claim := range []string{"scopeDigest", "createdAt", "id", "issuedAt", "expiresAt"} {
+		if contract.ClaimSemantics[claim] == "" {
+			t.Fatalf("cursor claim semantics are missing for %q", claim)
+		}
+	}
+	if contract.KeyDerivation["encryption"] == "" || contract.KeyDerivation["authentication"] == "" {
+		t.Fatal("cursor contract does not specify key derivation")
+	}
+}
