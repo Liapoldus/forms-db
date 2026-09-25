@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "keyFileEnvironment": "LIAPOLDUS_FORMS_DB_CURSOR_KEY_FILE",
+  "keyBytes": 32,
+  "lifetimeSeconds": 900,
+  "tokenEncoding": "base64url-no-padding",
+  "tokenVersion": 1,
+  "nonceBytes": 12,
+  "authenticatorBytes": 32,
+  "encryption": "AES-256-GCM",
+  "encryptionKeyLabel": "liapoldus.forms-db.cursor.v1.encryption",
+  "authentication": "HMAC-SHA-256",
+  "authenticationKeyLabel": "liapoldus.forms-db.cursor.v1.authentication",
+  "scopeDigest": "SHA-256-canonical-json",
+  "scopeFields": ["site", "schemaName", "filter"],
+  "ordering": ["createdAt DESC", "id DESC"],
+  "invalidCursorCode": "validation_failed",
+  "unavailableKeyCode": "storage_unavailable"
+}

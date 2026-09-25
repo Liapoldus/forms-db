@@ -11,6 +11,44 @@ declarative admin actions ещё не готовы. `admin.surface.get` возв
 read-only contract из `pluginprotocol`. Memory repository оставлен для
 детерминированных smoke-тестов.
 
+## Pagination cursor behavior
+
+`forms.list` follows the request and response shapes in the versioned
+`pluginprotocol` forms-db contracts. This plugin fixes the cursor behavior as
+follows:
+
+- Results use keyset order `createdAt DESC, id DESC`; the ID is the unique
+  tie-breaker when timestamps match. The cursor points to the last item in the
+  returned page, and the next page contains only rows strictly after that tuple
+  in this order. The repository reads at most `limit + 1` matching rows to
+  determine whether a next page exists.
+- A cursor is bound to the exact `site`, `schemaName`, and equality filter.
+  Reusing it with a different scope is rejected as `validation_failed`. A
+  missing, malformed, modified, expired, or wrong-scope cursor has the same
+  public error; responses and logs never include the token or its contents.
+- Cursor lifetime is 15 minutes from issuance. Cursors are opaque authenticated
+  tokens: encrypted claims include the scope digest, last `createdAt`/`id`
+  tuple, issue time, and expiry. The token uses AES-256-GCM for claim privacy
+  and HMAC-SHA-256 authentication; changing the token version, nonce, ciphertext,
+  or authenticator invalidates it.
+- The HMAC/encryption key is supplied by the deployment as an external secret
+  file; the versioned cursor security contract defines the environment variable,
+  encoding, and exact key length. The key is never part of `ConfigApply`, the
+  forms settings, database rows, fixtures, API responses, or logs. Missing,
+  unreadable, or incorrectly sized key material makes `forms.list` fail closed
+  with the existing `storage_unavailable` response; other capabilities can
+  continue operating.
+- Keep the same secret mounted across process restarts and on every replica
+  sharing a forms database. `ConfigApply` does not rotate the key. Rotate it by
+  replacing the external secret and rolling all replicas; this intentionally
+  invalidates outstanding cursors. The plugin does not retain old keys or offer
+  a cursor migration window.
+
+These details are plugin-owned implementation semantics recorded in the
+versioned `internal/infrastructure/security/contracts/cursor.json` asset. The
+public v1 JSON contract intentionally specifies cursor as an opaque optional
+string and does not prescribe its encoding or cryptographic implementation.
+
 ## Локальная разработка
 
 Репозиторий использует соседний checkout `pluginprotocol` через локальный
