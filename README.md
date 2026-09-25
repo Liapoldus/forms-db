@@ -11,43 +11,44 @@ declarative admin actions ещё не готовы. `admin.surface.get` возв
 read-only contract из `pluginprotocol`. Memory repository оставлен для
 детерминированных smoke-тестов.
 
-## Pagination cursor behavior
+## Семантика пагинации по cursor
 
-`forms.list` follows the request and response shapes in the versioned
-`pluginprotocol` forms-db contracts. This plugin fixes the cursor behavior as
-follows:
+`forms.list` следует формам запроса и ответа из версионированного forms-db
+контракта `pluginprotocol`. Детали реализации cursor принадлежат этому плагину:
 
-- Results use keyset order `createdAt DESC, id DESC`; the ID is the unique
-  tie-breaker when timestamps match. The cursor points to the last item in the
-  returned page, and the next page contains only rows strictly after that tuple
-  in this order. The repository reads at most `limit + 1` matching rows to
-  determine whether a next page exists.
-- A cursor is bound to the exact `site`, `schemaName`, and equality filter.
-  Reusing it with a different scope is rejected as `validation_failed`. A
-  missing, malformed, modified, expired, or wrong-scope cursor has the same
-  public error; responses and logs never include the token or its contents.
-- Cursor lifetime is 15 minutes from issuance. Cursors are opaque authenticated
-  tokens: encrypted claims include the scope digest, last `createdAt`/`id`
-  tuple, issue time, and expiry. The token uses AES-256-GCM for claim privacy
-  and HMAC-SHA-256 authentication; changing the token version, nonce, ciphertext,
-  or authenticator invalidates it.
-- The HMAC/encryption key is supplied by the deployment as an external secret
-  file; the versioned cursor security contract defines the environment variable,
-  encoding, and exact key length. The key is never part of `ConfigApply`, the
-  forms settings, database rows, fixtures, API responses, or logs. Missing,
-  unreadable, or incorrectly sized key material makes `forms.list` fail closed
-  with the existing `storage_unavailable` response; other capabilities can
-  continue operating.
-- Keep the same secret mounted across process restarts and on every replica
-  sharing a forms database. `ConfigApply` does not rotate the key. Rotate it by
-  replacing the external secret and rolling all replicas; this intentionally
-  invalidates outstanding cursors. The plugin does not retain old keys or offer
-  a cursor migration window.
+- Результаты упорядочены как `createdAt DESC, id DESC`. При одинаковом времени
+  создания уникальный `id` служит tie-breaker. Cursor указывает на последний
+  элемент выданной страницы; следующая страница содержит только записи строго
+  после этой пары в указанном порядке. Репозиторий читает не более `limit + 1`
+  подходящих записей, чтобы определить наличие следующей страницы.
+- Cursor связан с точными значениями `site`, `schemaName` и equality-фильтра.
+  Повторное использование в другом scope отклоняется с `validation_failed`.
+  Отсутствующий, некорректный, изменённый, просроченный cursor и cursor для
+  другого scope приводят к одному внешнему результату. Ответы и логи не
+  содержат token или его внутренние claims.
+- Срок действия cursor — 15 минут с момента выпуска. Claims зашифрованы и
+  аутентифицированы: они включают digest scope, последнюю пару `createdAt`/`id`,
+  время выпуска и истечения. Используются AES-256-GCM для конфиденциальности
+  claims и HMAC-SHA-256 для аутентификации. Изменение версии token, nonce,
+  ciphertext или authenticator делает cursor недействительным.
+- Ключ HMAC/шифрования поступает от окружения как внешний secret-файл. Имя
+  environment variable, формат token и длина ключа заданы в версионированном
+  security contract cursor. Ключ не входит в `ConfigApply`, настройки форм,
+  строки БД, fixtures, ответы API или логи. Отсутствующий, недоступный или
+  имеющий неверную длину ключ приводит к fail-closed ответу `storage_unavailable`
+  для `forms.list`; остальные capabilities могут продолжать работу.
+- Один и тот же secret должен оставаться смонтированным при перезапуске
+  процесса и на каждой replica, использующей общее хранилище форм. `ConfigApply`
+  не меняет ключ. Для ротации замените внешний secret и выполните rolling
+  restart всех replicas; выпущенные ранее cursors намеренно станут
+  недействительными. Плагин не хранит старые ключи и не предоставляет период
+  миграции cursor.
 
-These details are plugin-owned implementation semantics recorded in the
-versioned `internal/infrastructure/security/contracts/cursor.json` asset. The
-public v1 JSON contract intentionally specifies cursor as an opaque optional
-string and does not prescribe its encoding or cryptographic implementation.
+Полная раскладка token, claim fields, единицы времени, key derivation и
+криптографические параметры определены в versioned asset
+[`internal/infrastructure/security/contracts/cursor.json`](internal/infrastructure/security/contracts/cursor.json).
+Публичный JSON-контракт v1 намеренно задаёт cursor только как непрозрачную
+необязательную строку и не закрепляет её кодирование или алгоритмы защиты.
 
 ## Локальная разработка
 

@@ -134,8 +134,8 @@ func (s *CursorSigner) Close() {
 
 func newCursorSigner(contract cursorContract, key []byte) (*CursorSigner, error) {
 	if len(key) != contract.KeyBytes || contract.LifetimeSeconds < 1 || contract.TokenVersion < 0 || contract.TokenVersion > 255 ||
-		contract.NonceBytes < 1 || contract.AuthenticatorBytes != sha256.Size || contract.Encryption != "AES-256-GCM" ||
-		contract.Authentication != "HMAC-SHA-256" || contract.EncryptionKeyLabel == "" || contract.AuthenticationKeyLabel == "" {
+		contract.NonceBytes < 1 || contract.AuthenticatorBytes != sha256.Size || contract.Encryption == "" ||
+		contract.Authentication == "" || contract.EncryptionKeyLabel == "" || contract.AuthenticationKeyLabel == "" {
 		return nil, ErrCursorKeyUnavailable
 	}
 	encKey := deriveKey(key, contract.EncryptionKeyLabel)
