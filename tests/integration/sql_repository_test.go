@@ -5,7 +5,9 @@ import (
 	"database/sql"
 	"encoding/json"
 	"os"
+	"strconv"
 	"testing"
+	"time"
 
 	"github.com/Liapoldus/forms-db/internal/domain/models"
 	"github.com/Liapoldus/forms-db/internal/infrastructure/storage"
@@ -26,7 +28,7 @@ func testSQLRepository(t *testing.T, driver, env string) {
 		t.Skipf("%s is not set; real %s compatibility was not exercised", env, driver)
 	}
 	ctx := context.Background()
-	prefix := "formsdb_test_"
+	prefix := "formsdb_test_" + strconv.FormatInt(time.Now().UnixNano(), 36) + "_"
 	repository, err := storage.NewRepository(ctx, driver, dsn, prefix, map[string]json.RawMessage{
 		"contact": json.RawMessage(`{"type":"object","properties":{"email":{"type":"string"},"tag":{"type":"string"}}}`),
 	})
@@ -39,6 +41,8 @@ func testSQLRepository(t *testing.T, driver, env string) {
 		{ID: "frm_a", Site: "integration", Schema: "contact", CreatedAt: "2026-01-01T00:00:00Z", Data: map[string]any{"email": "one@example.test", "tag": "a"}},
 		{ID: "frm_b", Site: "integration", Schema: "contact", CreatedAt: "2026-01-02T00:00:00Z", Data: map[string]any{"email": "two@example.test", "tag": "b"}},
 		{ID: "frm_c", Site: "other", Schema: "contact", CreatedAt: "2026-01-03T00:00:00Z", Data: map[string]any{"email": "other@example.test", "tag": "a"}},
+		{ID: "frm_d", Site: "integration", Schema: "contact", CreatedAt: "2026-01-04T00:00:00Z", Data: map[string]any{"tag": "null-is-not-missing", "optional": nil}},
+		{ID: "frm_e", Site: "integration", Schema: "contact", CreatedAt: "2026-01-05T00:00:00Z", Data: map[string]any{"tag": "missing-is-not-null"}},
 	} {
 		if _, err := repository.Submit(ctx, item); err != nil {
 			t.Fatalf("%s submit: %v", driver, err)
@@ -49,6 +53,14 @@ func testSQLRepository(t *testing.T, driver, env string) {
 	page, err := repository.List(ctx, "integration", "contact", filter, nil, 1)
 	if err != nil || len(page) != 1 || page[0].ID != "frm_b" {
 		t.Fatalf("%s filtered list mismatch: page=%#v err=%v", driver, page, err)
+	}
+	page, err = repository.List(ctx, "integration", "contact", &models.SubmissionFilter{Field: "optional", Equals: json.RawMessage("null")}, nil, 10)
+	if err != nil || len(page) != 1 || page[0].ID != "frm_d" {
+		t.Fatalf("%s must distinguish JSON null from a missing property: page=%#v err=%v", driver, page, err)
+	}
+	page, err = repository.List(ctx, "integration", "contact", &models.SubmissionFilter{Field: "tag", Equals: json.RawMessage(`"b"`)}, nil, 10)
+	if err != nil || len(page) != 1 || page[0].ID != "frm_b" {
+		t.Fatalf("%s string equality filter mismatch: page=%#v err=%v", driver, page, err)
 	}
 	page, err = repository.List(ctx, "integration", "contact", nil, nil, 1)
 	if err != nil || len(page) != 1 || page[0].ID != "frm_b" {
