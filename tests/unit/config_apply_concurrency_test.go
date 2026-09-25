@@ -96,7 +96,7 @@ func (r *blockingRepository) Submit(_ context.Context, submission models.Submiss
 	return submission, nil
 }
 
-func (r *blockingRepository) List(context.Context, string, string, *models.SubmissionFilter, int) ([]models.Submission, error) {
+func (r *blockingRepository) List(context.Context, string, string, *models.SubmissionFilter, *models.SubmissionCursor, int) ([]models.Submission, error) {
 	return nil, nil
 }
 

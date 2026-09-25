@@ -11,6 +11,7 @@ import (
 	"github.com/Liapoldus/forms-db/internal/application"
 	"github.com/Liapoldus/forms-db/internal/domain/interfaces"
 	"github.com/Liapoldus/forms-db/internal/infrastructure/config"
+	"github.com/Liapoldus/forms-db/internal/infrastructure/security"
 	"github.com/Liapoldus/forms-db/internal/infrastructure/storage"
 	"github.com/Liapoldus/forms-db/internal/presentation/plugin"
 	"github.com/Liapoldus/pluginprotocol/transport"
@@ -26,8 +27,9 @@ func main() {
 	}
 	defer listener.Close()
 	var stop func()
-	pluginServer := plugin.NewServerWithRepositoryBuilder(
-		application.Service{Repository: storage.NewMemoryRepository()}, buildRepository, func() { stop() },
+	cursorSigner, _ := security.LoadCursorSigner()
+	pluginServer := plugin.NewServerWithRepositoryBuilderAndCursorSigner(
+		application.Service{Repository: storage.NewMemoryRepository()}, buildRepository, cursorSigner, func() { stop() },
 	)
 	server := transport.NewServer(pluginServer, transport.ServerOptions{})
 	stop = server.GracefulStop

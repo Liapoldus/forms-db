@@ -42,6 +42,7 @@ func TestFormsListUsesStableScopedKeysetPages(t *testing.T) {
 		t.Fatal("decode test request")
 	}
 	next["cursor"] = *first.NextCursor
+	applySettings(t, server, `{"schemas":{"contact":{"type":"object","properties":{"email":{"type":"string"}}}}}`)
 	encoded, err := json.Marshal(next)
 	if err != nil {
 		t.Fatal("encode next-page request")
@@ -70,6 +71,7 @@ func TestFormsListRejectsTamperedAndWrongScopeCursorsWithoutEchoing(t *testing.T
 	}
 	for _, request := range []map[string]any{
 		{"site": "other", "schemaName": "contact", "limit": 1, "cursor": *page.NextCursor},
+		{"site": "portal", "schemaName": "contact", "limit": 1, "filter": map[string]any{"field": "email", "equals": "a@example.test"}, "cursor": *page.NextCursor},
 		{"site": "portal", "schemaName": "contact", "limit": 1, "cursor": tamperCursor(*page.NextCursor)},
 	} {
 		encoded, err := json.Marshal(request)
@@ -81,13 +83,13 @@ func TestFormsListRejectsTamperedAndWrongScopeCursorsWithoutEchoing(t *testing.T
 			t.Fatal("forms.list transport call failed")
 		}
 		var envelope struct {
-			Status int             `json:"status"`
-			Body   json.RawMessage `json:"body"`
+			Status int    `json:"status"`
+			Body   []byte `json:"body"`
 		}
 		if err := json.Unmarshal(response.GetPayload(), &envelope); err != nil {
 			t.Fatal("decode forms.list response")
 		}
-		if envelope.Status != 422 || (len(envelope.Body) > 0 && fmt.Sprint(string(envelope.Body)) == fmt.Sprint(request["cursor"])) {
+		if envelope.Status != 422 {
 			t.Fatalf("invalid cursor must return generic validation error: status=%d body=%s", envelope.Status, envelope.Body)
 		}
 		if len(envelope.Body) > 0 && containsBytes(envelope.Body, []byte(fmt.Sprint(request["cursor"]))) {
@@ -128,8 +130,8 @@ func callListPage(t *testing.T, server *plugin.Server, payload string) listPage 
 		t.Fatal("forms.list transport call failed")
 	}
 	var envelope struct {
-		Status int             `json:"status"`
-		Body   json.RawMessage `json:"body"`
+		Status int    `json:"status"`
+		Body   []byte `json:"body"`
 	}
 	if err := json.Unmarshal(response.GetPayload(), &envelope); err != nil || envelope.Status != 200 {
 		t.Fatalf("forms.list failed: status=%d err=%v", envelope.Status, err)
@@ -152,6 +154,11 @@ func newCursorTestServerWithBuilder(t *testing.T, service application.Service, b
 	if _, err := rand.Read(key); err != nil {
 		t.Fatal("generate ephemeral test key")
 	}
+	defer func() {
+		for index := range key {
+			key[index] = 0
+		}
+	}()
 	signer, err := security.NewCursorSigner(key)
 	if err != nil {
 		t.Fatal("construct cursor signer")
@@ -160,10 +167,11 @@ func newCursorTestServerWithBuilder(t *testing.T, service application.Service, b
 }
 
 func tamperCursor(token string) string {
-	if token[len(token)-1] == 'A' {
-		return token[:len(token)-1] + "B"
+	tamperAt := len(token) / 2
+	if token[tamperAt] == 'A' {
+		return token[:tamperAt] + "B" + token[tamperAt+1:]
 	}
-	return token[:len(token)-1] + "A"
+	return token[:tamperAt] + "A" + token[tamperAt+1:]
 }
 
 func containsBytes(value, search []byte) bool {

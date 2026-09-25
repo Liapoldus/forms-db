@@ -13,6 +13,7 @@ var storageContractJSON []byte
 
 type storageContract struct {
 	SubmissionIDPrefix string `json:"submissionIdPrefix"`
+	MaxListRows        int    `json:"maxListRows"`
 	Tables             struct {
 		Schemas     string `json:"schemas"`
 		Submissions string `json:"submissions"`
@@ -36,7 +37,7 @@ func loadStorageContract() (storageContract, error) {
 	if err := json.Unmarshal(storageContractJSON, &contract); err != nil {
 		return storageContract{}, errors.New("invalid forms storage contract")
 	}
-	if contract.SubmissionIDPrefix == "" || contract.Tables.Schemas == "" || contract.Tables.Submissions == "" ||
+	if contract.SubmissionIDPrefix == "" || contract.MaxListRows < 1 || contract.Tables.Schemas == "" || contract.Tables.Submissions == "" ||
 		contract.Columns.Site == "" || contract.Columns.SchemaName == "" || contract.Columns.SchemaJSON == "" || contract.Columns.UpdatedAt == "" ||
 		contract.Columns.ID == "" || contract.Columns.CreatedAt == "" || contract.Columns.DataJSON == "" || contract.Indexes.SubmissionScopeCreatedAt == "" {
 		return storageContract{}, errors.New("incomplete forms storage contract")

@@ -3,6 +3,10 @@
   "keyFileEnvironment": "LIAPOLDUS_FORMS_DB_CURSOR_KEY_FILE",
   "keyBytes": 32,
   "lifetimeSeconds": 900,
+  "defaultPageSize": 50,
+  "maxPageSize": 100,
+  "lookaheadRows": 1,
+  "maxTokenBytes": 4096,
   "tokenEncoding": "base64url-no-padding",
   "tokenVersion": 1,
   "nonceBytes": 12,
@@ -13,7 +17,18 @@
   "authenticationKeyLabel": "liapoldus.forms-db.cursor.v1.authentication",
   "scopeDigest": "SHA-256-canonical-json",
   "scopeFields": ["site", "schemaName", "filter"],
+  "scopeFilterFieldName": "field",
+  "scopeFilterEqualsName": "equals",
+  "claimFields": {
+    "scopeDigest": "scopeDigest",
+    "createdAt": "createdAt",
+    "id": "id",
+    "issuedAt": "issuedAt",
+    "expiresAt": "expiresAt"
+  },
   "ordering": ["createdAt DESC", "id DESC"],
   "invalidCursorCode": "validation_failed",
-  "unavailableKeyCode": "storage_unavailable"
+  "unavailableKeyCode": "storage_unavailable",
+  "internalInvalidCursorError": "invalid cursor",
+  "internalCursorKeyUnavailableError": "cursor signing key unavailable"
 }

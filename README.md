@@ -5,8 +5,8 @@
 может выбрать постоянное хранилище SQLite; проверка отправок по переданным при
 конфигурации JSON Schema Draft 2020-12 реализована. Схемы пока не сохраняются в
 БД и должны приходить при каждом применении конфигурации. Equality-фильтры по
-разрешённым верхнеуровневым полям активной schema поддерживаются.
-HMAC-protected cursor pagination, PostgreSQL/MySQL и полное выполнение
+разрешённым верхнеуровневым полям активной schema и HMAC-protected cursor
+pagination реализованы. PostgreSQL/MySQL и полное выполнение
 declarative admin actions ещё не готовы. `admin.surface.get` возвращает
 read-only contract из `pluginprotocol`. Memory repository оставлен для
 детерминированных smoke-тестов.

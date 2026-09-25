@@ -1,5 +1,6 @@
 {
   "submissionIdPrefix": "frm_",
+  "maxListRows": 101,
   "tables": {
     "schemas": "schemas",
     "submissions": "submissions"

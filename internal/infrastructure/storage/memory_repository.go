@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"reflect"
+	"sort"
 	"sync"
 	"time"
 
@@ -39,20 +40,39 @@ func (r *MemoryRepository) Submit(_ context.Context, submission models.Submissio
 
 func (r *MemoryRepository) Close() error { return nil }
 
-func (r *MemoryRepository) List(_ context.Context, site, schema string, filter *models.SubmissionFilter, limit int) ([]models.Submission, error) {
+func (r *MemoryRepository) List(_ context.Context, site, schema string, filter *models.SubmissionFilter, after *models.SubmissionCursor, limit int) ([]models.Submission, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	contract, err := loadStorageContract()
+	if err != nil {
+		return nil, errors.New("list submissions")
+	}
 	if limit < 1 {
 		limit = 50
 	}
-	result := make([]models.Submission, 0, limit)
-	for index := len(r.submissions) - 1; index >= 0 && len(result) < limit; index-- {
-		item := r.submissions[index]
-		if item.Site == site && item.Schema == schema && matchesFilter(item, filter) {
-			result = append(result, item)
+	if limit > contract.MaxListRows {
+		limit = contract.MaxListRows
+	}
+	candidates := make([]models.Submission, 0, len(r.submissions))
+	for _, item := range r.submissions {
+		if item.Site == site && item.Schema == schema && matchesFilter(item, filter) && isAfterCursor(item, after) {
+			candidates = append(candidates, item)
 		}
 	}
-	return result, nil
+	sort.Slice(candidates, func(left, right int) bool {
+		if candidates[left].CreatedAt == candidates[right].CreatedAt {
+			return candidates[left].ID > candidates[right].ID
+		}
+		return candidates[left].CreatedAt > candidates[right].CreatedAt
+	})
+	if len(candidates) > limit {
+		candidates = candidates[:limit]
+	}
+	return candidates, nil
+}
+
+func isAfterCursor(item models.Submission, after *models.SubmissionCursor) bool {
+	return after == nil || item.CreatedAt < after.CreatedAt || (item.CreatedAt == after.CreatedAt && item.ID < after.ID)
 }
 
 func matchesFilter(item models.Submission, filter *models.SubmissionFilter) bool {

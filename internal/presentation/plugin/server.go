@@ -7,12 +7,14 @@ import (
 	"errors"
 	"io"
 	"sync"
+	"time"
 
 	"github.com/Liapoldus/forms-db/internal/application"
 	"github.com/Liapoldus/forms-db/internal/domain/interfaces"
 	"github.com/Liapoldus/forms-db/internal/domain/models"
 	"github.com/Liapoldus/forms-db/internal/infrastructure/config"
 	"github.com/Liapoldus/forms-db/internal/infrastructure/contracts"
+	"github.com/Liapoldus/forms-db/internal/infrastructure/security"
 	"github.com/Liapoldus/pluginprotocol"
 	"github.com/Liapoldus/pluginprotocol/pluginv1"
 	"google.golang.org/grpc/codes"
@@ -28,21 +30,31 @@ type Server struct {
 	service           application.Service
 	activeRepository  interfaces.Repository
 	repositoryBuilder RepositoryBuilder
+	cursorSigner      *security.CursorSigner
 	stop              func()
 }
 
 type RepositoryBuilder func(context.Context, config.Settings) (interfaces.Repository, error)
 
 func NewServer(service application.Service, stop func()) *Server {
-	return NewServerWithRepositoryBuilder(service, nil, stop)
+	return NewServerWithRepositoryBuilderAndCursorSigner(service, nil, nil, stop)
 }
 
 func NewServerWithRepositoryBuilder(service application.Service, builder RepositoryBuilder, stop func()) *Server {
+	return NewServerWithRepositoryBuilderAndCursorSigner(service, builder, nil, stop)
+}
+
+func NewServerWithCursorSigner(service application.Service, signer *security.CursorSigner, stop func()) *Server {
+	return NewServerWithRepositoryBuilderAndCursorSigner(service, nil, signer, stop)
+}
+
+func NewServerWithRepositoryBuilderAndCursorSigner(service application.Service, builder RepositoryBuilder, signer *security.CursorSigner, stop func()) *Server {
 	return &Server{
 		config:            config.Settings{Driver: "memory", TablePrefix: "form_"},
 		service:           service,
 		activeRepository:  service.Repository,
 		repositoryBuilder: builder,
+		cursorSigner:      signer,
 		stop:              stop,
 	}
 }
@@ -105,6 +117,12 @@ func (s *Server) ConfigApply(ctx context.Context, request *pluginv1.ConfigApplyR
 }
 
 func (s *Server) Shutdown(context.Context, *pluginv1.ShutdownRequest) (*pluginv1.ShutdownResult, error) {
+	s.mu.Lock()
+	if s.cursorSigner != nil {
+		s.cursorSigner.Close()
+		s.cursorSigner = nil
+	}
+	s.mu.Unlock()
 	if s.stop != nil {
 		go s.stop()
 	}
@@ -146,9 +164,10 @@ func (s *Server) Call(ctx context.Context, request *pluginv1.CallRequest) (*plug
 			return httpJSON(422, map[string]any{"code": "validation_failed"}), nil
 		}
 		var input struct {
-			Site       string `json:"site"`
-			SchemaName string `json:"schemaName"`
-			Limit      *int   `json:"limit"`
+			Site       string  `json:"site"`
+			SchemaName string  `json:"schemaName"`
+			Cursor     *string `json:"cursor"`
+			Limit      *int    `json:"limit"`
 			Filter     *struct {
 				Field  string          `json:"field"`
 				Equals json.RawMessage `json:"equals"`
@@ -164,18 +183,45 @@ func (s *Server) Call(ctx context.Context, request *pluginv1.CallRequest) (*plug
 			}
 			filter = &models.SubmissionFilter{Field: input.Filter.Field, Equals: input.Filter.Equals}
 		}
-		limit := 50
+		invalidCursorCode, unavailableKeyCode := security.CursorErrorCodes()
+		defaultLimit, maxLimit, lookaheadRows, limitsAvailable := security.CursorPageLimits()
+		if !limitsAvailable {
+			return httpJSON(503, map[string]any{"code": unavailableKeyCode}), nil
+		}
+		limit := defaultLimit
 		if input.Limit != nil {
-			if *input.Limit < 1 || *input.Limit > 100 {
+			if *input.Limit < 1 || *input.Limit > maxLimit {
 				return httpJSON(422, map[string]any{"code": "validation_failed"}), nil
 			}
 			limit = *input.Limit
 		}
-		items, err := service.List(ctx, input.Site, input.SchemaName, filter, limit)
+		var after *models.SubmissionCursor
+		scope := security.CursorScope{Site: input.Site, SchemaName: input.SchemaName, Filter: filter}
+		if s.cursorSigner == nil {
+			return httpJSON(503, map[string]any{"code": unavailableKeyCode}), nil
+		}
+		if input.Cursor != nil {
+			position, err := s.cursorSigner.Decode(*input.Cursor, scope, time.Now())
+			if err != nil {
+				return httpJSON(422, map[string]any{"code": invalidCursorCode}), nil
+			}
+			after = &position
+		}
+		items, err := service.List(ctx, input.Site, input.SchemaName, filter, after, limit+lookaheadRows)
 		if err != nil {
 			return httpJSON(503, map[string]any{"code": "storage_unavailable"}), nil
 		}
-		return httpJSON(200, map[string]any{"items": items, "nextCursor": nil}), nil
+		var nextCursor *string
+		if len(items) > limit {
+			items = items[:limit]
+			last := items[len(items)-1]
+			token, err := s.cursorSigner.Encode(scope, models.SubmissionCursor{CreatedAt: last.CreatedAt, ID: last.ID}, time.Now())
+			if err != nil {
+				return httpJSON(503, map[string]any{"code": unavailableKeyCode}), nil
+			}
+			nextCursor = &token
+		}
+		return httpJSON(200, map[string]any{"items": items, "nextCursor": nextCursor}), nil
 	case "forms.delete":
 		payload, err := requestPayload(request.GetPayload())
 		if err != nil {
