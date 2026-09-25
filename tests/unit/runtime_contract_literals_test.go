@@ -106,27 +106,33 @@ func TestCursorSecurityAssetDocumentsWireFormatAndTimeUnits(t *testing.T) {
 		t.Fatal("read cursor security contract")
 	}
 	var contract struct {
-		TokenLayout         []string          `json:"tokenLayout"`
-		ClaimsEncoding      string            `json:"claimsEncoding"`
-		TimestampUnit       string            `json:"timestampUnit"`
-		AuthenticatedBytes  string            `json:"authenticatedBytes"`
-		AEADAdditionalData  string            `json:"aeadAdditionalData"`
-		ScopeDigestInput    string            `json:"scopeDigestInput"`
-		ScopeDigestEncoding string            `json:"scopeDigestEncoding"`
-		ClaimSemantics      map[string]string `json:"claimSemantics"`
-		ExpiryRule          string            `json:"expiryRule"`
-		KeyDerivation       map[string]string `json:"keyDerivation"`
+		TokenLayout           []string          `json:"tokenLayout"`
+		ClaimsEncoding        string            `json:"claimsEncoding"`
+		TimestampUnit         string            `json:"timestampUnit"`
+		AuthenticatedBytes    string            `json:"authenticatedBytes"`
+		AEADAdditionalData    string            `json:"aeadAdditionalData"`
+		CiphertextFormat      string            `json:"ciphertextFormat"`
+		ScopeDigestInput      string            `json:"scopeDigestInput"`
+		ScopeCanonicalization string            `json:"scopeCanonicalization"`
+		ScopeDigestEncoding   string            `json:"scopeDigestEncoding"`
+		ClaimsSerialization   string            `json:"claimsSerialization"`
+		ClaimSemantics        map[string]string `json:"claimSemantics"`
+		ExpiryRule            string            `json:"expiryRule"`
+		KeyDerivation         map[string]string `json:"keyDerivation"`
 	}
 	if err := json.Unmarshal(data, &contract); err != nil {
 		t.Fatal("decode cursor security contract")
 	}
 	expectedLayout := []string{"version", "nonce", "ciphertext", "authenticator"}
 	if strings.Join(contract.TokenLayout, ",") != strings.Join(expectedLayout, ",") ||
-		contract.ClaimsEncoding != "UTF-8 JSON object" || contract.TimestampUnit != "Unix nanoseconds" ||
-		contract.AuthenticatedBytes != "version || nonce || ciphertext" || contract.AEADAdditionalData != "version byte" ||
-		contract.ScopeDigestInput != "canonical JSON object of site, schemaName, and filter; absent filter is null; filter fields are field and equals" ||
-		contract.ScopeDigestEncoding != "base64url without padding" ||
-		contract.ExpiryRule != "issuedAt <= now < expiresAt and expiresAt - issuedAt equals lifetimeSeconds in timestampUnit" {
+		contract.ClaimsEncoding != "объект JSON в UTF-8" || contract.TimestampUnit != "наносекунды Unix time" ||
+		contract.AuthenticatedBytes != "version || nonce || ciphertext" || contract.AEADAdditionalData != "байт version" ||
+		contract.CiphertextFormat != "шифротекст AES-GCM, затем добавленный GCM tag" ||
+		contract.ScopeDigestInput != "канонический JSON-объект site, schemaName и filter; отсутствующий filter равен null; поля filter: field и equals" ||
+		contract.ScopeCanonicalization != "filter.equals разбирается с JSON UseNumber; Go encoding/json сериализует scope компактно и сортирует ключи" ||
+		contract.ScopeDigestEncoding != "base64url без padding" ||
+		contract.ClaimsSerialization != "Go encoding/json сериализует claims компактно в UTF-8 и сортирует ключи объекта лексикографически" ||
+		contract.ExpiryRule != "issuedAt <= now < expiresAt; expiresAt - issuedAt равно lifetimeSeconds после перевода в timestampUnit" {
 		t.Fatal("cursor contract does not fully specify token framing, scope, or timestamp units")
 	}
 	for _, claim := range []string{"scopeDigest", "createdAt", "id", "issuedAt", "expiresAt"} {
