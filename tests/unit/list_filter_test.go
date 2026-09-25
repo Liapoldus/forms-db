@@ -12,7 +12,7 @@ import (
 )
 
 func TestListFiltersBySchemaPropertyEquality(t *testing.T) {
-	server := plugin.NewServer(application.Service{Repository: storage.NewMemoryRepository()}, nil)
+	server := newCursorTestServer(t, application.Service{Repository: storage.NewMemoryRepository()})
 	settings := []byte(`{"schemas":{"contact":{"type":"object","properties":{"email":{"type":"string"}},"required":["email"],"additionalProperties":false}}}`)
 	if result, err := server.ConfigApply(context.Background(), &pluginv1.ConfigApplyRequest{Config: settings}); err != nil || !result.GetApplied() {
 		t.Fatalf("valid schema config was not applied: result=%#v err=%v", result, err)
@@ -48,7 +48,7 @@ func TestListFiltersBySchemaPropertyEquality(t *testing.T) {
 }
 
 func TestListRejectsFilterOutsideRegisteredSchema(t *testing.T) {
-	server := plugin.NewServer(application.Service{Repository: storage.NewMemoryRepository()}, nil)
+	server := newCursorTestServer(t, application.Service{Repository: storage.NewMemoryRepository()})
 	settings := []byte(`{"schemas":{"contact":{"type":"object","properties":{"email":{"type":"string"}},"additionalProperties":false}}}`)
 	if result, err := server.ConfigApply(context.Background(), &pluginv1.ConfigApplyRequest{Config: settings}); err != nil || !result.GetApplied() {
 		t.Fatalf("valid schema config was not applied: result=%#v err=%v", result, err)
@@ -72,7 +72,7 @@ func TestListRejectsFilterOutsideRegisteredSchema(t *testing.T) {
 }
 
 func TestListRejectsUnregisteredSchemaWithoutFilter(t *testing.T) {
-	server := plugin.NewServer(application.Service{Repository: storage.NewMemoryRepository()}, nil)
+	server := newCursorTestServer(t, application.Service{Repository: storage.NewMemoryRepository()})
 	response, err := server.Call(context.Background(), &pluginv1.CallRequest{
 		Capability: "forms.list",
 		Payload:    []byte(`{"site":"portal","schemaName":"missing"}`),
@@ -92,7 +92,7 @@ func TestListRejectsUnregisteredSchemaWithoutFilter(t *testing.T) {
 }
 
 func TestListRejectsLimitOutsideContractBounds(t *testing.T) {
-	server := plugin.NewServer(application.Service{Repository: storage.NewMemoryRepository()}, nil)
+	server := newCursorTestServer(t, application.Service{Repository: storage.NewMemoryRepository()})
 	applySettings(t, server, `{"schemas":{"contact":{"type":"object"}}}`)
 	for _, limit := range []int{0, 101, -1} {
 		payload, err := json.Marshal(map[string]any{"site": "portal", "schemaName": "contact", "limit": limit})
@@ -116,7 +116,7 @@ func TestListRejectsLimitOutsideContractBounds(t *testing.T) {
 }
 
 func TestListFilterRecognizesPropertyResolvedThroughLocalReference(t *testing.T) {
-	server := plugin.NewServer(application.Service{Repository: storage.NewMemoryRepository()}, nil)
+	server := newCursorTestServer(t, application.Service{Repository: storage.NewMemoryRepository()})
 	settings := []byte(`{"schemas":{"contact":{"$schema":"https://json-schema.org/draft/2020-12/schema","$ref":"#/$defs/contact","$defs":{"contact":{"type":"object","properties":{"email":{"type":"string"}},"required":["email"],"additionalProperties":false}}}}}`)
 	if result, err := server.ConfigApply(context.Background(), &pluginv1.ConfigApplyRequest{Config: settings}); err != nil || !result.GetApplied() {
 		t.Fatalf("valid local-reference schema was not applied: result=%#v err=%v", result, err)

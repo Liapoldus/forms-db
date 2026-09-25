@@ -25,8 +25,8 @@ func TestConfigApplySwitchesToSQLiteAndRetainsActiveDatabaseOnFailure(t *testing
 		}
 		return storage.NewMemoryRepository(), nil
 	}
-	server := plugin.NewServerWithRepositoryBuilder(
-		application.Service{Repository: storage.NewMemoryRepository()}, builder, nil,
+	server := newCursorTestServerWithBuilder(
+		t, application.Service{Repository: storage.NewMemoryRepository()}, builder,
 	)
 	applySettings(t, server, sqliteSettings(databasePath))
 
