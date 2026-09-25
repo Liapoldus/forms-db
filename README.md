@@ -65,11 +65,9 @@ go test ./...
 Бинарник получает endpoint через `LIAPOLDUS_PLUGIN_ENDPOINT`; его нельзя
 запускать на публичном listener.
 
-Gateway smoke test (требуется соседний checkout Gateway):
-
-```bash
-LIAPOLDUS_CORE_ROOT="../../core" ./tests/gateway_smoke.sh
-```
+Current Gateway child-process smoke is not yet available. The former script
+generated a retired `listeners/routes` bootstrap document and did not validate
+the current Caddy runtime; a replacement is tracked in `TODO.md`.
 
 ## Архитектура
 
@@ -83,7 +81,6 @@ internal/infrastructure/contracts/ адаптер контрактов из plug
 internal/infrastructure/storage/ SQLite и детерминированное memory-хранилище
 internal/presentation/plugin/    адаптер protocol и HTTP-envelope
 tests/unit/                      unit- и boundary-тесты
-tests/gateway_smoke.sh            интеграционная фикстура Gateway
 ```
 
 Domain и application не импортируют protocol, Gateway или storage packages.

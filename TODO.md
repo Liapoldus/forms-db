@@ -1,8 +1,11 @@
 # TODO — forms-db
 
-Здесь отслеживаются только незавершённые задачи плагина. Архитектура и JSON/wire
-контракты принадлежат [pluginprotocol](../pluginprotocol); Gateway-интеграция и
-общий план экосистемы описаны в [документации Liapoldus](../liapoldus.github.io).
+Здесь отслеживаются только незавершённые задачи плагина. Архитектура IPC и
+общие JSON/wire-контракты принадлежат
+[pluginprotocol](https://github.com/Liapoldus/pluginprotocol); актуальная
+публичная страница продукта — [forms-db](https://liapoldus.github.io/plugins/forms-db).
+
+Актуально на 2026-09-26. Локальный Git clone не имеет настроенного remote.
 
 ## Прогресс
 
@@ -26,6 +29,20 @@
   keyset-pagination с HMAC/AES cursor.
 - Админ-поверхность пока read-only: `admin.surface.get` публикует декларативный
   контракт, но изменяющие admin actions не исполняются.
+
+## Аудит мёртвого кода
+
+- Go package graph включает composition root, protocol adapter, config,
+  contracts, storage, security и application packages; их production-файлы
+  имеют runtime или test consumers. Устаревший Gateway smoke script удалён:
+  `rg` подтвердил отсутствие CI/build/code callers, а bootstrap schema отвергает
+  создаваемые им `listeners/routes`; сценарий не доходил до plugin dispatch.
+  Admin action handler остаётся, поскольку forms-db его явно объявляет, но не
+  расширяется без подтверждённого versioned contract.
+- Удалён неиспользуемый `NewServerWithCursorSigner`: у него не было call sites;
+  доступен объединённый constructor с repository builder и signer.
+- После удаления пройдены `go test ./...`, `go vet ./...`, `go build ./...` и
+  `git diff --check`.
 
 ## Осталось
 
@@ -54,7 +71,9 @@
   сохраняя Gateway-owned authorization/audit, plugin storage limits и
   redaction. До этого текущие `forms.list`/`forms.delete` runtime semantics не
   расширять и не обещать полную исполнимость admin UI.
-- Расширить Gateway smoke так, чтобы он проверял SQL-backed работу с общей БД
-  при нескольких plugin replicas и rotation внешнего cursor secret.
-- Зафиксировать канонический Git remote для этого репозитория и выполнить push
-  проверенных commits после подтверждения правильного URL.
+- Добавить актуальный Caddy-based Gateway child-process smoke для SQL-backed
+  работы с общей БД при нескольких plugin replicas и rotation внешнего cursor
+  secret после доступности runtime fixture.
+- Установить и подтвердить канонический Git remote для этого репозитория, затем
+  опубликовать проверенные локальные commits. Сейчас remote отсутствует; URL не
+  угадывать.

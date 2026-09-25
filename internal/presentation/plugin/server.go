@@ -44,10 +44,6 @@ func NewServerWithRepositoryBuilder(service application.Service, builder Reposit
 	return NewServerWithRepositoryBuilderAndCursorSigner(service, builder, nil, stop)
 }
 
-func NewServerWithCursorSigner(service application.Service, signer *security.CursorSigner, stop func()) *Server {
-	return NewServerWithRepositoryBuilderAndCursorSigner(service, nil, signer, stop)
-}
-
 func NewServerWithRepositoryBuilderAndCursorSigner(service application.Service, builder RepositoryBuilder, signer *security.CursorSigner, stop func()) *Server {
 	return &Server{
 		config:            config.Settings{Driver: "memory", TablePrefix: "form_"},
