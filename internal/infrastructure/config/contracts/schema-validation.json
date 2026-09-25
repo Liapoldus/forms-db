@@ -1,5 +1,6 @@
 {
   "schemaNamePattern": "^[a-z][a-z0-9_-]{0,63}$",
+  "tablePrefixPattern": "^[A-Za-z_][A-Za-z0-9_]{0,31}$",
   "draft2020SchemaUrl": "https://json-schema.org/draft/2020-12/schema",
   "resourceBase": "https://schemas.invalid/liapoldus/forms-db/",
   "maxSubmissionProperties": 256

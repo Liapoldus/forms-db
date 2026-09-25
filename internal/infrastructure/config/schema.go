@@ -15,6 +15,7 @@ var schemaValidationContractJSON []byte
 
 type schemaValidationContract struct {
 	SchemaNamePattern       string `json:"schemaNamePattern"`
+	TablePrefixPattern      string `json:"tablePrefixPattern"`
 	Draft2020Schema         string `json:"draft2020SchemaUrl"`
 	ResourceBase            string `json:"resourceBase"`
 	MaxSubmissionProperties int    `json:"maxSubmissionProperties"`

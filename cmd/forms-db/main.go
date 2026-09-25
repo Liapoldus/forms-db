@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"log"
 	"os"
 	"os/signal"
@@ -47,12 +46,8 @@ func main() {
 }
 
 func buildRepository(ctx context.Context, settings config.Settings) (interfaces.Repository, error) {
-	switch settings.Driver {
-	case "memory":
+	if settings.Driver == "memory" {
 		return storage.NewMemoryRepository(), nil
-	case "sqlite":
-		return storage.NewSQLiteRepository(ctx, settings.DSN, settings.TablePrefix)
-	default:
-		return nil, errors.New("unsupported forms storage driver")
 	}
+	return storage.NewRepository(ctx, settings.Driver, settings.DSN, settings.TablePrefix, settings.Schemas)
 }

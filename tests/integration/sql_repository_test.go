@@ -41,8 +41,8 @@ func testSQLRepository(t *testing.T, driver, env string) {
 		{ID: "frm_a", Site: "integration", Schema: "contact", CreatedAt: "2026-01-01T00:00:00Z", Data: map[string]any{"email": "one@example.test", "tag": "a"}},
 		{ID: "frm_b", Site: "integration", Schema: "contact", CreatedAt: "2026-01-02T00:00:00Z", Data: map[string]any{"email": "two@example.test", "tag": "b"}},
 		{ID: "frm_c", Site: "other", Schema: "contact", CreatedAt: "2026-01-03T00:00:00Z", Data: map[string]any{"email": "other@example.test", "tag": "a"}},
-		{ID: "frm_d", Site: "integration", Schema: "contact", CreatedAt: "2026-01-04T00:00:00Z", Data: map[string]any{"tag": "null-is-not-missing", "optional": nil}},
-		{ID: "frm_e", Site: "integration", Schema: "contact", CreatedAt: "2026-01-05T00:00:00Z", Data: map[string]any{"tag": "missing-is-not-null"}},
+		{ID: "frm_d", Site: "filter", Schema: "contact", CreatedAt: "2025-12-30T00:00:00Z", Data: map[string]any{"tag": "null-is-not-missing", "optional": nil}},
+		{ID: "frm_e", Site: "filter", Schema: "contact", CreatedAt: "2025-12-31T00:00:00Z", Data: map[string]any{"tag": "missing-is-not-null"}},
 	} {
 		if _, err := repository.Submit(ctx, item); err != nil {
 			t.Fatalf("%s submit: %v", driver, err)
@@ -54,7 +54,7 @@ func testSQLRepository(t *testing.T, driver, env string) {
 	if err != nil || len(page) != 1 || page[0].ID != "frm_b" {
 		t.Fatalf("%s filtered list mismatch: page=%#v err=%v", driver, page, err)
 	}
-	page, err = repository.List(ctx, "integration", "contact", &models.SubmissionFilter{Field: "optional", Equals: json.RawMessage("null")}, nil, 10)
+	page, err = repository.List(ctx, "filter", "contact", &models.SubmissionFilter{Field: "optional", Equals: json.RawMessage("null")}, nil, 10)
 	if err != nil || len(page) != 1 || page[0].ID != "frm_d" {
 		t.Fatalf("%s must distinguish JSON null from a missing property: page=%#v err=%v", driver, page, err)
 	}
@@ -77,7 +77,7 @@ func testSQLRepository(t *testing.T, driver, env string) {
 	// Verify schema persistence through the configured SQL driver without exposing DSN in failures.
 	var sqlDriver string
 	if driver == "postgres" {
-		sqlDriver = "postgres"
+		sqlDriver = "pgx"
 	} else {
 		sqlDriver = "mysql"
 	}

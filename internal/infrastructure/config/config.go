@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"regexp"
 
 	"github.com/santhosh-tekuri/jsonschema/v6"
 )
@@ -33,6 +34,9 @@ func Apply(raw []byte) (Settings, error) {
 	if settings.TablePrefix == "" {
 		settings.TablePrefix = "form_"
 	}
+	if !ValidTablePrefix(settings.TablePrefix) {
+		return Settings{}, errors.New("invalid table prefix")
+	}
 	if settings.Driver != "memory" && settings.Driver != "sqlite" && settings.Driver != "postgres" && settings.Driver != "mysql" {
 		return Settings{}, errors.New("driver must be memory, sqlite, postgres, or mysql")
 	}
@@ -43,4 +47,13 @@ func Apply(raw []byte) (Settings, error) {
 	settings.compiledSchemas = compiledSchemas
 	settings.maxProperties = maxProperties
 	return settings, nil
+}
+
+func ValidTablePrefix(prefix string) bool {
+	var contract schemaValidationContract
+	if err := json.Unmarshal(schemaValidationContractJSON, &contract); err != nil || contract.TablePrefixPattern == "" {
+		return false
+	}
+	pattern, err := regexp.Compile(contract.TablePrefixPattern)
+	return err == nil && pattern.MatchString(prefix)
 }
