@@ -1,7 +1,9 @@
 {
   "version": 1,
-  "keyFileEnvironment": "LIAPOLDUS_FORMS_DB_CURSOR_KEY_FILE",
   "keyBytes": 32,
+  "grantCapability": "forms.list",
+  "grantPurpose": "cursor-signing",
+  "grantDomain": "forms-db.cursor",
   "lifetimeSeconds": 900,
   "defaultPageSize": 50,
   "maxPageSize": 100,

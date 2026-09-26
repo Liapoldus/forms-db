@@ -10,7 +10,6 @@ import (
 	"github.com/Liapoldus/forms-db/internal/application"
 	"github.com/Liapoldus/forms-db/internal/domain/interfaces"
 	"github.com/Liapoldus/forms-db/internal/infrastructure/config"
-	"github.com/Liapoldus/forms-db/internal/infrastructure/security"
 	"github.com/Liapoldus/forms-db/internal/infrastructure/storage"
 	"github.com/Liapoldus/forms-db/internal/presentation/plugin"
 	"github.com/Liapoldus/pluginprotocol/transport"
@@ -19,16 +18,15 @@ import (
 func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
-	listener, err := transport.ListenLoopback()
+	listener, err := transport.ListenInherited()
 	if err != nil {
 		log.Printf("forms-db listen failed: %v", err)
 		os.Exit(1)
 	}
 	defer listener.Close()
 	var stop func()
-	cursorSigner, _ := security.LoadCursorSigner()
-	pluginServer := plugin.NewServerWithRepositoryBuilderAndCursorSigner(
-		application.Service{Repository: storage.NewMemoryRepository()}, buildRepository, cursorSigner, func() { stop() },
+	pluginServer := plugin.NewServerWithRepositoryBuilderAndGrantRedeemer(
+		application.Service{Repository: storage.NewMemoryRepository()}, buildRepository, nil, func() { stop() },
 	)
 	server := transport.NewServer(pluginServer, transport.ServerOptions{})
 	stop = server.GracefulStop
@@ -49,5 +47,5 @@ func buildRepository(ctx context.Context, settings config.Settings) (interfaces.
 	if settings.Driver == "memory" {
 		return storage.NewMemoryRepository(), nil
 	}
-	return storage.NewRepository(ctx, settings.Driver, settings.DSN, settings.TablePrefix, settings.Schemas)
+	return storage.NewRepository(ctx, settings.Driver, string(settings.DSN), settings.TablePrefix, settings.Schemas)
 }

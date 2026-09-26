@@ -13,7 +13,6 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
-	"os"
 	"time"
 
 	"github.com/Liapoldus/forms-db/internal/domain/models"
@@ -50,8 +49,10 @@ type CursorSigner struct {
 
 type cursorContract struct {
 	Version                int               `json:"version"`
-	KeyFileEnvironment     string            `json:"keyFileEnvironment"`
 	KeyBytes               int               `json:"keyBytes"`
+	GrantCapability        string            `json:"grantCapability"`
+	GrantPurpose           string            `json:"grantPurpose"`
+	GrantDomain            string            `json:"grantDomain"`
 	LifetimeSeconds        int64             `json:"lifetimeSeconds"`
 	DefaultPageSize        int               `json:"defaultPageSize"`
 	MaxPageSize            int               `json:"maxPageSize"`
@@ -74,23 +75,6 @@ type cursorContract struct {
 	InternalKeyUnavailable string            `json:"internalCursorKeyUnavailableError"`
 }
 
-func LoadCursorSigner() (*CursorSigner, error) {
-	contract, err := loadCursorContract()
-	if err != nil {
-		return nil, ErrCursorKeyUnavailable
-	}
-	path := os.Getenv(contract.KeyFileEnvironment)
-	if path == "" {
-		return nil, ErrCursorKeyUnavailable
-	}
-	key, err := os.ReadFile(path)
-	if err != nil {
-		return nil, ErrCursorKeyUnavailable
-	}
-	defer clear(key)
-	return newCursorSigner(contract, key)
-}
-
 func CursorErrorCodes() (invalidCursor, unavailableKey string) {
 	contract, err := loadCursorContract()
 	if err != nil {
@@ -99,20 +83,22 @@ func CursorErrorCodes() (invalidCursor, unavailableKey string) {
 	return contract.InvalidCursorCode, contract.UnavailableKeyCode
 }
 
-func CursorKeyFileEnvironment() string {
-	contract, err := loadCursorContract()
-	if err != nil {
-		return ""
-	}
-	return contract.KeyFileEnvironment
-}
-
 func CursorPageLimits() (defaultPageSize, maxPageSize, lookaheadRows int, ok bool) {
 	contract, err := loadCursorContract()
 	if err != nil {
 		return 0, 0, 0, false
 	}
 	return contract.DefaultPageSize, contract.MaxPageSize, contract.LookaheadRows, true
+}
+
+// CursorGrantScope returns the request-scoped grant selectors from the
+// versioned security contract. It contains no secret material.
+func CursorGrantScope() (capability, purpose, domain string, ok bool) {
+	contract, err := loadCursorContract()
+	if err != nil {
+		return "", "", "", false
+	}
+	return contract.GrantCapability, contract.GrantPurpose, contract.GrantDomain, true
 }
 
 func NewCursorSigner(key []byte) (*CursorSigner, error) {
@@ -276,7 +262,8 @@ func (s *CursorSigner) scopeDigest(scope CursorScope) ([]byte, error) {
 
 func loadCursorContract() (cursorContract, error) {
 	var contract cursorContract
-	if err := json.Unmarshal(cursorContractJSON, &contract); err != nil || contract.Version != 1 || contract.KeyFileEnvironment == "" || contract.KeyBytes < 32 ||
+	if err := json.Unmarshal(cursorContractJSON, &contract); err != nil || contract.Version != 1 || contract.KeyBytes < 32 ||
+		contract.GrantCapability == "" || contract.GrantPurpose == "" || contract.GrantDomain == "" ||
 		contract.LifetimeSeconds < 1 || contract.DefaultPageSize < 1 || contract.MaxPageSize < contract.DefaultPageSize || contract.LookaheadRows < 1 ||
 		contract.MaxTokenBytes < 1 || len(contract.ScopeFields) != 3 || contract.ScopeFields[0] == "" || contract.ScopeFields[1] == "" || contract.ScopeFields[2] == "" ||
 		contract.ScopeFilterFieldName == "" || contract.ScopeFilterEqualsName == "" || len(contract.ClaimFields) != 5 ||

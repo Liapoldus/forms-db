@@ -32,18 +32,27 @@ PostgreSQL и MySQL; MySQL-совместимость проверена так�
   время выпуска и истечения. Используются AES-256-GCM для конфиденциальности
   claims и HMAC-SHA-256 для аутентификации. Изменение версии token, nonce,
   ciphertext или authenticator делает cursor недействительным.
-- Ключ HMAC/шифрования поступает от окружения как внешний secret-файл. Имя
-  environment variable, формат token и длина ключа заданы в версионированном
-  security contract cursor. Ключ не входит в `ConfigApply`, настройки форм,
-  строки БД, fixtures, ответы API или логи. Отсутствующий, недоступный или
-  имеющий неверную длину ключ приводит к fail-closed ответу `storage_unavailable`
-  для `forms.list`; остальные capabilities могут продолжать работу.
-- Один и тот же secret должен оставаться смонтированным при перезапуске
-  процесса и на каждой replica, использующей общее хранилище форм. `ConfigApply`
-  не меняет ключ. Для ротации замените внешний secret и выполните rolling
-  restart всех replicas; выпущенные ранее cursors намеренно станут
+- Cursor key не передаётся через environment, файл, settings или `ConfigApply`.
+  Для каждого `forms.list` Gateway передаёт request-scoped `ActiveGrant`; плагин
+  получает ключ через protocol `GrantBroker.RedeemGrant`, создаёт signer только
+  на время одного вызова и очищает полученные байты после обработки. Grant
+  contract и его scope заданы в versioned security asset. Отсутствующий,
+  недоступный или имеющий неверную длину ключ приводит к fail-closed ответу
+  `storage_unavailable` для `forms.list`; остальные capabilities продолжают
+  работу.
+- Cursor signing key — Gateway-managed logical secret, общий для replicas,
+  которым нужно валидировать cursors друг друга. Ротация выполняется заменой
+  Gateway secret; все ранее выпущенные cursors намеренно становятся
   недействительными. Плагин не хранит старые ключи и не предоставляет период
   миграции cursor.
+- Для SQL-хранилища `ConfigApply` содержит только opaque Gateway-issued
+  reference для DSN. Gateway прикладывает revision-scoped `CONFIG_APPLY` grant,
+  и плагин получает байты DSN через `GrantClient.RedeemConfig`; DSN остаётся в
+  памяти storage adapter-а, но не сохраняется в активном объекте settings.
+  Raw DSN не
+  допускается в settings, протокольных логах, ответах или fixtures. Новый
+  settings revision атомарно заменяет активный repository/DSN; неудачное
+  применение сохраняет предыдущую активную конфигурацию.
 
 Полная раскладка token, claim fields, единицы времени, key derivation и
 криптографические параметры определены в versioned asset
@@ -60,10 +69,13 @@ PostgreSQL и MySQL; MySQL-совместимость проверена так�
 go build ./...
 go vet ./...
 go test ./...
+npm test
 ```
 
-Бинарник получает endpoint через `LIAPOLDUS_PLUGIN_ENDPOINT`; его нельзя
-запускать на публичном listener.
+Gateway передаёт плагину уже открытый loopback listener через inherited file
+descriptor. Плагин не читает environment или application config files; при
+старте Gateway выполняет typed `Bootstrap`, затем отправляет `ConfigApply` и
+проверяет health до подключения плагина к dispatch.
 
 Current Gateway child-process smoke is not yet available. The former script
 generated a retired `listeners/routes` bootstrap document and did not validate

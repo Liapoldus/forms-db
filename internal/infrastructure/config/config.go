@@ -11,11 +11,21 @@ import (
 
 type Settings struct {
 	Driver          string                     `json:"driver"`
-	DSN             string                     `json:"dsn"`
+	DSNReference    string                     `json:"dsn"`
+	DSN             []byte                     `json:"-"`
 	TablePrefix     string                     `json:"tablePrefix"`
 	Schemas         map[string]json.RawMessage `json:"schemas"`
 	compiledSchemas map[string]*jsonschema.Schema
 	maxProperties   int
+}
+
+func (s *Settings) ApplyDSNSecret(secret []byte) error {
+	contract, err := loadSecretSettingsContract()
+	if err != nil || contract.DSNField == "" || contract.DSNType != "secret" || len(secret) == 0 || s.DSNReference == "" {
+		return errors.New("invalid storage secret grant")
+	}
+	s.DSN = append(s.DSN[:0], secret...)
+	return nil
 }
 
 func Apply(raw []byte) (Settings, error) {

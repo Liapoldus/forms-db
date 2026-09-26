@@ -27,6 +27,20 @@
   SQL-пути проверено на PostgreSQL 17, MySQL 8.4 и MariaDB 11.4.
 - Реализованы schema validation отправок, equality-фильтры и защищённая
   keyset-pagination с HMAC/AES cursor.
+- Удалена загрузка cursor signing key через env и файл. Gateway выдаёт
+  call-scoped `ActiveGrant` для `forms.list`; плагин обращается к
+  `GrantBroker.RedeemGrant` из `pluginprotocol`, создаёт signer только на время
+  одного вызова и очищает полученные байты. Bootstrap принимает только
+  operational GrantBroker endpoint, settings/секреты в нём не передаются.
+- SQL DSN теперь трактуется как opaque Gateway-issued reference в settings.
+  `ConfigApply` обязан содержать revision-scoped `CONFIG_APPLY` grant с теми же
+  instance ID, settings revision и secret reference. Плагин вызывает
+  `GrantClient.RedeemConfig`, строит repository до атомарной замены активной
+  конфигурации и не сохраняет DSN в settings после успешного применения.
+  Неудачный grant или repository setup сохраняет предыдущую конфигурацию.
+- Плагин принимает inherited loopback listener через `transport.ListenInherited`;
+  production entrypoint не читает application settings, endpoint или cursor
+  key из environment и не загружает application config files.
 - Админ-поверхность пока read-only: `admin.surface.get` публикует декларативный
   контракт, но изменяющие admin actions не исполняются.
 
@@ -40,9 +54,11 @@
   Admin action handler остаётся, поскольку forms-db его явно объявляет, но не
   расширяется без подтверждённого versioned contract.
 - Удалён неиспользуемый `NewServerWithCursorSigner`: у него не было call sites;
-  доступен объединённый constructor с repository builder и signer.
-- После удаления пройдены `go test ./...`, `go vet ./...`, `go build ./...` и
-  `git diff --check`.
+  lifecycle cursor signing теперь зависит от GrantBroker adapter-а, а не от
+  заранее внедрённого долговечного signer-а.
+- Для этого security boundary добавлены исполняемые Node TypeScript contract
+  tests (`npm test`); Go unit/integration tests остаются основным поведением
+  плагина.
 
 ## Осталось
 
@@ -72,8 +88,12 @@
   redaction. До этого текущие `forms.list`/`forms.delete` runtime semantics не
   расширять и не обещать полную исполнимость admin UI.
 - Добавить актуальный Caddy-based Gateway child-process smoke для SQL-backed
-  работы с общей БД при нескольких plugin replicas и rotation внешнего cursor
-  secret после доступности runtime fixture.
+  работы с общей БД при нескольких plugin replicas; проверить, что одинаковый
+  Gateway-managed cursor secret через call-scoped grants валидирует cursor на
+  другой replica, а его rotation инвалидирует старые cursors.
+- Уточнить и проверить Gateway side: каждый SQL plugin instance получает только
+  opaque DSN reference; `ConfigApply` выдаёт revision-scoped config grant, а
+  отказ grant/repository setup не открывает candidate revision в dispatch.
 - Установить и подтвердить канонический Git remote для этого репозитория, затем
   опубликовать проверенные локальные commits. Сейчас remote отсутствует; URL не
   угадывать.
