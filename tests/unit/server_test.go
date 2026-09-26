@@ -3,9 +3,12 @@ package unit
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"testing"
 
 	"github.com/Liapoldus/forms-db/internal/application"
+	"github.com/Liapoldus/forms-db/internal/domain/interfaces"
+	"github.com/Liapoldus/forms-db/internal/domain/models"
 	"github.com/Liapoldus/forms-db/internal/infrastructure/storage"
 	"github.com/Liapoldus/forms-db/internal/presentation/plugin"
 	"github.com/Liapoldus/pluginprotocol/pluginv1"
@@ -92,3 +95,116 @@ func TestServerRejectsUnknownCapability(t *testing.T) {
 		t.Fatalf("unexpected rejection: %#v, %v", response, err)
 	}
 }
+
+func TestFormsDeleteDistinguishesMissingRecordsFromStorageFailures(t *testing.T) {
+	for _, testCase := range []struct {
+		name       string
+		deleteErr  error
+		wantStatus int
+		wantCode   string
+	}{
+		{name: "missing record", deleteErr: interfaces.ErrNotFound, wantStatus: 404, wantCode: "not_found"},
+		{name: "storage failure", deleteErr: errors.New("database unavailable"), wantStatus: 503, wantCode: "storage_unavailable"},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			repository := deleteFailureRepository{Repository: storage.NewMemoryRepository(), deleteErr: testCase.deleteErr}
+			server := plugin.NewServer(application.Service{Repository: repository}, nil)
+			requestBody, err := json.Marshal(map[string]string{"site": "portal", "schemaName": "contact", "id": "frm_123"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			payload, err := json.Marshal(struct {
+				Method string `json:"method"`
+				Path   string `json:"path"`
+				Body   []byte `json:"body"`
+			}{Method: "DELETE", Path: "/forms/submissions/frm_123", Body: requestBody})
+			if err != nil {
+				t.Fatal(err)
+			}
+			response, err := server.Call(context.Background(), &pluginv1.CallRequest{Capability: "forms.delete", Payload: payload})
+			if err != nil {
+				t.Fatal(err)
+			}
+			var actual struct {
+				Status int    `json:"status"`
+				Body   []byte `json:"body"`
+			}
+			if err := json.Unmarshal(response.GetPayload(), &actual); err != nil {
+				t.Fatal(err)
+			}
+			var responseBody struct {
+				Code string `json:"code"`
+			}
+			if err := json.Unmarshal(actual.Body, &responseBody); err != nil {
+				t.Fatal(err)
+			}
+			if actual.Status != testCase.wantStatus || responseBody.Code != testCase.wantCode {
+				t.Fatalf("delete response = (%d, %q), want (%d, %q)", actual.Status, responseBody.Code, testCase.wantStatus, testCase.wantCode)
+			}
+		})
+	}
+}
+
+func TestFormsDeleteRepeatedDeletionReturnsNotFound(t *testing.T) {
+	repository := storage.NewMemoryRepository()
+	if _, err := repository.Submit(context.Background(), models.Submission{
+		ID: "frm_123", Site: "portal", Schema: "contact", Data: map[string]any{"name": "Ada"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	server := plugin.NewServer(application.Service{Repository: repository}, nil)
+
+	if statusCode, code := callDelete(t, server); statusCode != 200 || code != "" {
+		t.Fatalf("first delete response = (%d, %q), want (200, empty code)", statusCode, code)
+	}
+	if statusCode, code := callDelete(t, server); statusCode != 404 || code != "not_found" {
+		t.Fatalf("repeated delete response = (%d, %q), want (404, not_found)", statusCode, code)
+	}
+}
+
+func callDelete(t *testing.T, server *plugin.Server) (int, string) {
+	t.Helper()
+	body, err := json.Marshal(map[string]string{"site": "portal", "schemaName": "contact", "id": "frm_123"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	payload, err := json.Marshal(struct {
+		Method string `json:"method"`
+		Path   string `json:"path"`
+		Body   []byte `json:"body"`
+	}{Method: "DELETE", Path: "/forms/submissions/frm_123", Body: body})
+	if err != nil {
+		t.Fatal(err)
+	}
+	response, err := server.Call(context.Background(), &pluginv1.CallRequest{Capability: "forms.delete", Payload: payload})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var actual struct {
+		Status int    `json:"status"`
+		Body   []byte `json:"body"`
+	}
+	if err := json.Unmarshal(response.GetPayload(), &actual); err != nil {
+		t.Fatal(err)
+	}
+	var responseBody struct {
+		Code string `json:"code"`
+	}
+	if len(actual.Body) > 0 {
+		if err := json.Unmarshal(actual.Body, &responseBody); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return actual.Status, responseBody.Code
+}
+
+type deleteFailureRepository struct {
+	interfaces.Repository
+	deleteErr error
+}
+
+func (r deleteFailureRepository) Delete(context.Context, string, string, string) error {
+	return r.deleteErr
+}
+
+var _ interfaces.Repository = deleteFailureRepository{}
