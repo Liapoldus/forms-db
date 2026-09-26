@@ -356,7 +356,7 @@ func (r *SQLRepository) Delete(ctx context.Context, site, schema, id string) err
 		return errors.New("check deleted submission")
 	}
 	if deleted == 0 {
-		return ErrNotFound
+		return interfaces.ErrNotFound
 	}
 	return nil
 }

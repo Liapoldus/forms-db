@@ -9,10 +9,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Liapoldus/forms-db/internal/domain/interfaces"
 	"github.com/Liapoldus/forms-db/internal/domain/models"
 )
 
-var ErrNotFound = errors.New("submission not found")
+var ErrNotFound = interfaces.ErrNotFound
 
 type MemoryRepository struct {
 	mu          sync.Mutex
@@ -99,5 +100,5 @@ func (r *MemoryRepository) Delete(_ context.Context, site, schema, id string) er
 			return nil
 		}
 	}
-	return ErrNotFound
+	return interfaces.ErrNotFound
 }

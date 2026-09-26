@@ -62,31 +62,23 @@
 
 ## Осталось
 
-- **Blocker: admin action invocation ещё не имеет полного protocol-контракта.**
-  Единственный forms-db action в
-  `pluginprotocol/contracts/forms-db/v1/admin-surface.json` — `delete`, который
-  ссылается на `forms.delete` и помечен `dangerous: true`. Общая схема
-  `pluginprotocol/contracts/admin-ui/v1/schema.json` задаёт Gateway URL
-  `/api/plugins/{instance}/admin/pages/{page}/actions/{action}` и общую проверку
-  capability, но не задаёт request/response schema, формат ошибок или точную
-  семантику удаления для `forms.delete`. Текущий Go handler принимает
-  `site`/`schemaName`/`id`, отвечает `deleted`/`id` или `not_found`, но это пока
-  реализация без подтверждающего versioned contract; не считать её нормативной
-  и не расширять, пока владелец `pluginprotocol` не закрепит payload и ответы.
-  Нужны schema/vector/error contract и решение, должна ли повторная попытка
-  удаления отсутствующей записи оставаться `not_found`.
-- **Blocker: форма настроек admin surface ссылается на control RPC.** Страница
-  `storage` использует `capability: "config.schema"`, однако `ConfigSchema` и
-  `ConfigApply` — typed control RPC, а не capability в Manifest/Call. Общий
-  admin UI contract не объясняет, как Gateway/Constructor должны отобразить
-  такую страницу и отправить изменения. Не добавлять `config.schema` в Manifest
-  и не превращать control RPC в `Call`, пока protocol contract не задаст явное
-  отображение.
-- Добавить в `pluginprotocol` недостающие нормативные admin-surface invocation
-  contracts, после чего реализовать и протестировать подтверждённые actions,
-  сохраняя Gateway-owned authorization/audit, plugin storage limits и
-  redaction. До этого текущие `forms.list`/`forms.delete` runtime semantics не
-  расширять и не обещать полную исполнимость admin UI.
+- **Контракт admin action закрыт в pluginprotocol v1.** `forms.delete` принимает
+  только `site`/`schemaName`/`id`, успешно отвечает `deleted`/`id`, а удаление
+  отсутствующей записи (в том числе повторное) возвращает терминальную ошибку
+  `not_found`/404. Ошибки валидации — `validation_failed`/422, а ошибки
+  хранилища — повторяемая `storage_unavailable`/503. Plugin handler и SQL
+  adapters должны сохранять это разделение; Gateway остаётся владельцем
+  авторизации, audit и повторов.
+- **Отображение настроек через control RPC закрыто в pluginprotocol v1.** Страница
+  `storage` задаёт `ConfigSchema`/`ConfigApply` как control flow, а поля формы
+  берутся из `ConfigSchema`; эти RPC не добавляются в Manifest и не вызываются
+  как `Call` capability. Плагин уже предоставляет соответствующие RPC и
+  protocol-owned admin surface.
+- **Осталось: end-to-end admin action orchestration.** Plugin реализует
+  `forms.delete`, однако полный Gateway/Constructor flow вызова declarative
+  admin actions, проверок permission, audit и безопасной передачи результата
+  должен быть подтверждён общей integration/conformance suite. Не дублировать
+  его как специальную логику forms-db.
 - Добавить актуальный Caddy-based Gateway child-process smoke для SQL-backed
   работы с общей БД при нескольких plugin replicas; проверить, что одинаковый
   Gateway-managed cursor secret через call-scoped grants валидирует cursor на

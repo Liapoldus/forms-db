@@ -348,6 +348,9 @@ func (s *Server) Call(ctx context.Context, request *pluginv1.CallRequest) (*plug
 			return httpJSON(422, map[string]any{"code": "validation_failed"}), nil
 		}
 		if err := service.Delete(ctx, input.Site, input.SchemaName, input.ID); err != nil {
+			if !errors.Is(err, interfaces.ErrNotFound) {
+				return httpJSON(503, map[string]any{"code": "storage_unavailable"}), nil
+			}
 			return httpJSON(404, map[string]any{"code": "not_found"}), nil
 		}
 		return httpJSON(200, map[string]any{"deleted": true, "id": input.ID}), nil
