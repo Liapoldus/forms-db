@@ -452,5 +452,5 @@ func jsonResponse(value any) *pluginv1.CallResponse {
 
 func httpJSON(status int, value any) *pluginv1.CallResponse {
 	body, _ := json.Marshal(value)
-	return jsonResponse(map[string]any{"status": status, "headers": map[string]string{"Content-Type": "application/json"}, "body": body})
+	return jsonResponse(map[string]any{"status": status, "headers": map[string]string{"Content-Type": "application/json"}, "body": string(body)})
 }

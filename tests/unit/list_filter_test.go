@@ -28,7 +28,7 @@ func TestListFiltersBySchemaPropertyEquality(t *testing.T) {
 	}
 	var envelope struct {
 		Status int    `json:"status"`
-		Body   []byte `json:"body"`
+		Body   string `json:"body"`
 	}
 	if err := json.Unmarshal(response.GetPayload(), &envelope); err != nil {
 		t.Fatal(err)
@@ -38,7 +38,7 @@ func TestListFiltersBySchemaPropertyEquality(t *testing.T) {
 			Data map[string]any `json:"data"`
 		} `json:"items"`
 	}
-	if err := json.Unmarshal(envelope.Body, &result); err != nil {
+	if err := json.Unmarshal([]byte(envelope.Body), &result); err != nil {
 		t.Fatal(err)
 	}
 	if envelope.Status != 200 || len(result.Items) != 1 || result.Items[0].Data["email"] != "one@example.test" {

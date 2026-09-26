@@ -78,7 +78,7 @@ func TestServerSubmitUsesHTTPEnvelopeAndMemoryDouble(t *testing.T) {
 	}
 	var httpResponse struct {
 		Status int    `json:"status"`
-		Body   []byte `json:"body"`
+		Body   string `json:"body"`
 	}
 	if err := json.Unmarshal(response.GetPayload(), &httpResponse); err != nil {
 		t.Fatal(err)
@@ -127,7 +127,7 @@ func TestFormsDeleteDistinguishesMissingRecordsFromStorageFailures(t *testing.T)
 			}
 			var actual struct {
 				Status int    `json:"status"`
-				Body   []byte `json:"body"`
+				Body   string `json:"body"`
 			}
 			if err := json.Unmarshal(response.GetPayload(), &actual); err != nil {
 				t.Fatal(err)
@@ -135,7 +135,7 @@ func TestFormsDeleteDistinguishesMissingRecordsFromStorageFailures(t *testing.T)
 			var responseBody struct {
 				Code string `json:"code"`
 			}
-			if err := json.Unmarshal(actual.Body, &responseBody); err != nil {
+			if err := json.Unmarshal([]byte(actual.Body), &responseBody); err != nil {
 				t.Fatal(err)
 			}
 			if actual.Status != testCase.wantStatus || responseBody.Code != testCase.wantCode {
@@ -162,6 +162,45 @@ func TestFormsDeleteRepeatedDeletionReturnsNotFound(t *testing.T) {
 	}
 }
 
+func TestHTTPResponseActionBodyIsUTF8JSONStringInCallResponse(t *testing.T) {
+	server := plugin.NewServer(application.Service{Repository: storage.NewMemoryRepository()}, nil)
+	requestBody, err := json.Marshal(map[string]string{"site": "portal", "schemaName": "contact", "id": "missing"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	payload, err := json.Marshal(struct {
+		Method string `json:"method"`
+		Path   string `json:"path"`
+		Body   []byte `json:"body"`
+	}{Method: "DELETE", Path: "/forms/submissions/missing", Body: requestBody})
+	if err != nil {
+		t.Fatal(err)
+	}
+	response, err := server.Call(context.Background(), &pluginv1.CallRequest{Capability: "forms.delete", Payload: payload})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var action struct {
+		Status int    `json:"status"`
+		Body   string `json:"body"`
+	}
+	if err := json.Unmarshal(response.GetPayload(), &action); err != nil {
+		t.Fatal(err)
+	}
+	if action.Status != 404 {
+		t.Fatalf("unexpected status: %d", action.Status)
+	}
+	var body struct {
+		Code string `json:"code"`
+	}
+	if err := json.Unmarshal([]byte(action.Body), &body); err != nil {
+		t.Fatalf("response action body is not a UTF-8 JSON string: %v; body=%q", err, action.Body)
+	}
+	if body.Code != "not_found" {
+		t.Fatalf("unexpected response action body: %q", action.Body)
+	}
+}
+
 func callDelete(t *testing.T, server *plugin.Server) (int, string) {
 	t.Helper()
 	body, err := json.Marshal(map[string]string{"site": "portal", "schemaName": "contact", "id": "frm_123"})
@@ -182,7 +221,7 @@ func callDelete(t *testing.T, server *plugin.Server) (int, string) {
 	}
 	var actual struct {
 		Status int    `json:"status"`
-		Body   []byte `json:"body"`
+		Body   string `json:"body"`
 	}
 	if err := json.Unmarshal(response.GetPayload(), &actual); err != nil {
 		t.Fatal(err)
@@ -190,8 +229,8 @@ func callDelete(t *testing.T, server *plugin.Server) (int, string) {
 	var responseBody struct {
 		Code string `json:"code"`
 	}
-	if len(actual.Body) > 0 {
-		if err := json.Unmarshal(actual.Body, &responseBody); err != nil {
+	if actual.Body != "" {
+		if err := json.Unmarshal([]byte(actual.Body), &responseBody); err != nil {
 			t.Fatal(err)
 		}
 	}

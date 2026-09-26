@@ -119,7 +119,7 @@ func listFormSubmissions(t *testing.T, server *plugin.Server) int {
 	}
 	var httpResponse struct {
 		Status int    `json:"status"`
-		Body   []byte `json:"body"`
+		Body   string `json:"body"`
 	}
 	if err := json.Unmarshal(response.GetPayload(), &httpResponse); err != nil {
 		t.Fatal(err)
@@ -130,7 +130,7 @@ func listFormSubmissions(t *testing.T, server *plugin.Server) int {
 	var result struct {
 		Items []models.Submission `json:"items"`
 	}
-	if err := json.Unmarshal(httpResponse.Body, &result); err != nil {
+	if err := json.Unmarshal([]byte(httpResponse.Body), &result); err != nil {
 		t.Fatal(err)
 	}
 	return len(result.Items)

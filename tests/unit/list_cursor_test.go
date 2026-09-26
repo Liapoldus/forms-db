@@ -1,11 +1,11 @@
 package unit
 
 import (
-	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/Liapoldus/forms-db/internal/application"
@@ -85,7 +85,7 @@ func TestFormsListRejectsTamperedAndWrongScopeCursorsWithoutEchoing(t *testing.T
 		}
 		var envelope struct {
 			Status int    `json:"status"`
-			Body   []byte `json:"body"`
+			Body   string `json:"body"`
 		}
 		if err := json.Unmarshal(response.GetPayload(), &envelope); err != nil {
 			t.Fatal("decode forms.list response")
@@ -93,7 +93,7 @@ func TestFormsListRejectsTamperedAndWrongScopeCursorsWithoutEchoing(t *testing.T
 		if envelope.Status != 422 {
 			t.Fatalf("invalid cursor must return generic validation error: status=%d body=%s", envelope.Status, envelope.Body)
 		}
-		if len(envelope.Body) > 0 && containsBytes(envelope.Body, []byte(fmt.Sprint(request["cursor"]))) {
+		if envelope.Body != "" && strings.Contains(envelope.Body, fmt.Sprint(request["cursor"])) {
 			t.Fatal("response must not echo cursor contents")
 		}
 	}
@@ -133,13 +133,13 @@ func callListPage(t *testing.T, server *plugin.Server, payload string) listPage 
 	}
 	var envelope struct {
 		Status int    `json:"status"`
-		Body   []byte `json:"body"`
+		Body   string `json:"body"`
 	}
 	if err := json.Unmarshal(response.GetPayload(), &envelope); err != nil || envelope.Status != 200 {
 		t.Fatalf("forms.list failed: status=%d err=%v", envelope.Status, err)
 	}
 	var result listPage
-	if err := json.Unmarshal(envelope.Body, &result); err != nil {
+	if err := json.Unmarshal([]byte(envelope.Body), &result); err != nil {
 		t.Fatal("decode list page")
 	}
 	return result
@@ -204,8 +204,4 @@ func tamperCursor(token string) string {
 		return token[:tamperAt] + "B" + token[tamperAt+1:]
 	}
 	return token[:tamperAt] + "A" + token[tamperAt+1:]
-}
-
-func containsBytes(value, search []byte) bool {
-	return bytes.Contains(value, search)
 }

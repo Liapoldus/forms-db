@@ -74,7 +74,7 @@ func assertSubmitStatus(t *testing.T, server *plugin.Server, payload string, exp
 	}
 	var result struct {
 		Status int    `json:"status"`
-		Body   []byte `json:"body"`
+		Body   string `json:"body"`
 	}
 	if err := json.Unmarshal(response.GetPayload(), &result); err != nil {
 		t.Fatal(err)
@@ -86,7 +86,7 @@ func assertSubmitStatus(t *testing.T, server *plugin.Server, payload string, exp
 		var problem struct {
 			Code string `json:"code"`
 		}
-		if err := json.Unmarshal(result.Body, &problem); err != nil || problem.Code != "validation_failed" {
+		if err := json.Unmarshal([]byte(result.Body), &problem); err != nil || problem.Code != "validation_failed" {
 			t.Fatalf("invalid submission must return validation_failed, body=%s err=%v", result.Body, err)
 		}
 	}
