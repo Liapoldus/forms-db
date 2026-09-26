@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"crypto/rand"
 	"errors"
-	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -48,57 +46,6 @@ func TestCursorRejectsEmptyOrShortSecret(t *testing.T) {
 		if _, err := NewCursorSigner(key); err == nil {
 			t.Fatal("cursor signer must reject missing or undersized key material")
 		}
-	}
-}
-
-func TestCursorKeyLoadsFromExternalFileAndCanBeSharedAcrossReplicas(t *testing.T) {
-	key := make([]byte, 32)
-	if _, err := rand.Read(key); err != nil {
-		t.Fatal("generate external test key")
-	}
-	defer clear(key)
-	keyPath := filepath.Join(t.TempDir(), "cursor-key")
-	if err := os.WriteFile(keyPath, key, 0o600); err != nil {
-		t.Fatal("write temporary external key")
-	}
-	environment := CursorKeyFileEnvironment()
-	if environment == "" {
-		t.Fatal("security contract has no external key file environment name")
-	}
-	t.Setenv(environment, keyPath)
-	first, err := LoadCursorSigner()
-	if err != nil {
-		t.Fatal("load cursor key for first replica")
-	}
-	token, err := first.Encode(CursorScope{Site: "portal", SchemaName: "contact"}, models.SubmissionCursor{CreatedAt: "2026-01-01T00:00:00Z", ID: "frm_a"}, time.Now())
-	if err != nil {
-		t.Fatal("encode cursor")
-	}
-	second, err := LoadCursorSigner()
-	if err != nil {
-		t.Fatal("load cursor key for replacement replica")
-	}
-	if _, err := second.Decode(token, CursorScope{Site: "portal", SchemaName: "contact"}, time.Now()); err != nil {
-		t.Fatal("stable external secret must validate cursors across process restarts")
-	}
-}
-
-func TestCursorKeyFileRejectsMissingOrInvalidMaterial(t *testing.T) {
-	environment := CursorKeyFileEnvironment()
-	if environment == "" {
-		t.Fatal("security contract has no external key file environment name")
-	}
-	t.Setenv(environment, "")
-	if _, err := LoadCursorSigner(); !errors.Is(err, ErrCursorKeyUnavailable) {
-		t.Fatal("empty key reference must fail closed")
-	}
-	keyPath := filepath.Join(t.TempDir(), "short-key")
-	if err := os.WriteFile(keyPath, []byte("not a key"), 0o600); err != nil {
-		t.Fatal("write invalid test key")
-	}
-	t.Setenv(environment, keyPath)
-	if _, err := LoadCursorSigner(); !errors.Is(err, ErrCursorKeyUnavailable) {
-		t.Fatal("invalid key file must fail closed")
 	}
 }
 

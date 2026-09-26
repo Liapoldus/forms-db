@@ -21,16 +21,21 @@ func TestConfigApplyWaitsForCallsUsingTheActiveRepository(t *testing.T) {
 	active := &blockingRepository{started: make(chan struct{}), release: make(chan struct{})}
 	applyReady := make(chan struct{})
 	builder := func(_ context.Context, settings config.Settings) (interfaces.Repository, error) {
-		if settings.DSN == "active" {
+		if string(settings.DSN) == "active" {
 			return active, nil
 		}
 		close(applyReady)
 		return storage.NewMemoryRepository(), nil
 	}
+	redeemer := staticGrantRedeemer{configSecrets: map[string][]byte{"active-reference": []byte("active")}}
 	server := plugin.NewServerWithRepositoryBuilder(
 		application.Service{Repository: storage.NewMemoryRepository()}, builder, nil,
 	)
-	applySettings(t, server, `{"driver":"sqlite","dsn":"active","schemas":{"contact":{"type":"object"}}}`)
+	server.SetGrantBrokerDialer(func(context.Context, *pluginv1.BootstrapRequest) (plugin.GrantRedeemer, error) {
+		return redeemer, nil
+	})
+	bootstrapTestServer(t, server, redeemer)
+	applySettings(t, server, `{"driver":"sqlite","dsn":"active-reference","schemas":{"contact":{"type":"object"}}}`)
 
 	callDone := make(chan *pluginv1.CallResponse, 1)
 	go func() {
@@ -44,15 +49,13 @@ func TestConfigApplyWaitsForCallsUsingTheActiveRepository(t *testing.T) {
 
 	applyDone := make(chan error, 1)
 	go func() {
-		_, err := server.ConfigApply(context.Background(), &pluginv1.ConfigApplyRequest{Config: []byte(`{"driver":"memory","dsn":"next","schemas":{"contact":{"type":"object"}}}`)})
+		_, err := server.ConfigApply(context.Background(), configApplyRequest(`{"driver":"memory","schemas":{"contact":{"type":"object"}}}`))
 		applyDone <- err
 	}()
 	<-applyReady
 	select {
 	case err := <-applyDone:
-		if err != nil {
-			t.Fatal(err)
-		}
+		t.Fatalf("ConfigApply returned before the call released its active repository: err=%v", err)
 	case <-time.After(100 * time.Millisecond):
 	}
 

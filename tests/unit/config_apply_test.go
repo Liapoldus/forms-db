@@ -21,27 +21,64 @@ func TestConfigApplySwitchesToSQLiteAndRetainsActiveDatabaseOnFailure(t *testing
 	databasePath := filepath.Join(t.TempDir(), "forms.db")
 	builder := func(ctx context.Context, settings config.Settings) (interfaces.Repository, error) {
 		if settings.Driver == "sqlite" {
-			return storage.NewSQLiteRepository(ctx, settings.DSN, settings.TablePrefix)
+			if string(settings.DSN) == "reject-dsn" {
+				return nil, fmt.Errorf("test repository setup rejected")
+			}
+			return storage.NewSQLiteRepository(ctx, string(settings.DSN), settings.TablePrefix)
 		}
 		return storage.NewMemoryRepository(), nil
 	}
-	server := newCursorTestServerWithBuilder(
+	server := newCursorTestServerWithBuilderAndConfigSecrets(
 		t, application.Service{Repository: storage.NewMemoryRepository()}, builder,
+		map[string][]byte{"sqlite-dsn-reference": []byte(databasePath), "failing-dsn-reference": []byte("reject-dsn")},
 	)
-	applySettings(t, server, sqliteSettings(databasePath))
+	applySettings(t, server, sqliteSettings("sqlite-dsn-reference"))
 
 	callFormCapability(t, server, "forms.submit", `{"site":"portal","schemaName":"contact","data":{"name":"persistent"}}`)
-	if _, err := server.ConfigApply(ctx, &pluginv1.ConfigApplyRequest{Config: []byte(sqliteSettings(t.TempDir()))}); err == nil {
+	if _, err := server.ConfigApply(ctx, configApplyRequest(sqliteSettings("failing-dsn-reference"))); err == nil {
 		t.Fatal("invalid database config must not replace the active repository")
 	}
 	if count := listFormSubmissions(t, server); count != 1 {
 		t.Fatalf("failed config apply changed the active database: count=%d", count)
 	}
 
-	applySettings(t, server, sqliteSettings(databasePath))
+	applySettings(t, server, sqliteSettings("sqlite-dsn-reference"))
 	if count := listFormSubmissions(t, server); count != 1 {
 		t.Fatalf("reopening the configured database lost data: count=%d", count)
 	}
+}
+
+func TestConfigApplyRejectsUnmatchedOrRawDSNReference(t *testing.T) {
+	databasePath := filepath.Join(t.TempDir(), "forms.db")
+	builder := func(ctx context.Context, settings config.Settings) (interfaces.Repository, error) {
+		return storage.NewSQLiteRepository(ctx, string(settings.DSN), settings.TablePrefix)
+	}
+	server := newCursorTestServerWithBuilderAndConfigSecrets(
+		t, application.Service{Repository: storage.NewMemoryRepository()}, builder,
+		map[string][]byte{"valid-dsn-reference": []byte(databasePath)},
+	)
+	valid := configApplyRequest(sqliteSettings("valid-dsn-reference"))
+	if result, err := server.ConfigApply(context.Background(), valid); err != nil || !result.GetApplied() {
+		t.Fatalf("valid reference-bound DSN grant must apply: result=%#v err=%v", result, err)
+	}
+
+	for _, invalid := range []*pluginv1.ConfigApplyRequest{
+		configApplyRequest(sqliteSettings(databasePath)),
+		wrongRevisionConfigRequest(sqliteSettings("valid-dsn-reference")),
+	} {
+		if result, err := server.ConfigApply(context.Background(), invalid); err == nil || result.GetApplied() {
+			t.Fatalf("unmatched DSN grant must not apply: result=%#v err=%v", result, err)
+		}
+	}
+	if count := listFormSubmissions(t, server); count != 0 {
+		t.Fatalf("failed config applies must preserve the active repository: count=%d", count)
+	}
+}
+
+func wrongRevisionConfigRequest(raw string) *pluginv1.ConfigApplyRequest {
+	request := configApplyRequest(raw)
+	request.SettingsRevision += "-changed"
+	return request
 }
 
 func sqliteSettings(dsn string) string {
@@ -50,10 +87,7 @@ func sqliteSettings(dsn string) string {
 
 func applySettings(t *testing.T, server *plugin.Server, settings string) {
 	t.Helper()
-	result, err := server.ConfigApply(context.Background(), &pluginv1.ConfigApplyRequest{Config: []byte(settings)})
-	if err != nil || !result.GetApplied() {
-		t.Fatalf("config apply failed: result=%#v err=%v", result, err)
-	}
+	applyTestConfig(t, server, settings)
 }
 
 func callFormCapability(t *testing.T, server *plugin.Server, capability, payload string) {
@@ -78,6 +112,7 @@ func listFormSubmissions(t *testing.T, server *plugin.Server) int {
 	response, err := server.Call(context.Background(), &pluginv1.CallRequest{
 		Capability: "forms.list",
 		Payload:    []byte(`{"site":"portal","schemaName":"contact","limit":50}`),
+		Grants:     []*pluginv1.ActiveGrant{testCursorGrant(t)},
 	})
 	if err != nil {
 		t.Fatal(err)

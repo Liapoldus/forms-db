@@ -13,14 +13,14 @@ import (
 )
 
 func TestConfigApplyCompilesSchemasAndSubmitValidatesData(t *testing.T) {
-	server := plugin.NewServer(application.Service{Repository: storage.NewMemoryRepository()}, nil)
+	server := newBootstrappedTestServer(t, application.Service{Repository: storage.NewMemoryRepository()})
 	invalidSchema := []byte(`{"schemas":{"contact":{"type":17}}}`)
-	if result, err := server.ConfigApply(context.Background(), &pluginv1.ConfigApplyRequest{Config: invalidSchema}); err == nil || result.GetApplied() {
+	if result, err := server.ConfigApply(context.Background(), configApplyRequest(string(invalidSchema))); err == nil || result.GetApplied() {
 		t.Fatalf("invalid JSON Schema must not be applied: result=%#v err=%v", result, err)
 	}
 
 	settings := []byte(`{"schemas":{"contact":{"$schema":"https://json-schema.org/draft/2020-12/schema","type":"object","required":["email"],"properties":{"email":{"type":"string"}},"additionalProperties":false}}}`)
-	result, err := server.ConfigApply(context.Background(), &pluginv1.ConfigApplyRequest{Config: settings})
+	result, err := server.ConfigApply(context.Background(), configApplyRequest(string(settings)))
 	if err != nil || !result.GetApplied() {
 		t.Fatalf("valid Draft 2020-12 schema was rejected: result=%#v err=%v", result, err)
 	}
@@ -31,20 +31,18 @@ func TestConfigApplyCompilesSchemasAndSubmitValidatesData(t *testing.T) {
 }
 
 func TestConfigApplyRejectsExternalSchemaReferences(t *testing.T) {
-	server := plugin.NewServer(application.Service{Repository: storage.NewMemoryRepository()}, nil)
+	server := newBootstrappedTestServer(t, application.Service{Repository: storage.NewMemoryRepository()})
 	settings := []byte(`{"schemas":{"contact":{"$schema":"https://json-schema.org/draft/2020-12/schema","$ref":"https://schemas.example.invalid/contact.json"}}}`)
-	result, err := server.ConfigApply(context.Background(), &pluginv1.ConfigApplyRequest{Config: settings})
+	result, err := server.ConfigApply(context.Background(), configApplyRequest(string(settings)))
 	if err == nil || result.GetApplied() {
 		t.Fatalf("external schema references must be rejected without loading resources: result=%#v err=%v", result, err)
 	}
 }
 
 func TestSubmitRejectsMorePropertiesThanThePayloadContractAllows(t *testing.T) {
-	server := plugin.NewServer(application.Service{Repository: storage.NewMemoryRepository()}, nil)
+	server := newBootstrappedTestServer(t, application.Service{Repository: storage.NewMemoryRepository()})
 	settings := []byte(`{"schemas":{"contact":{"type":"object"}}}`)
-	if result, err := server.ConfigApply(context.Background(), &pluginv1.ConfigApplyRequest{Config: settings}); err != nil || !result.GetApplied() {
-		t.Fatalf("valid schema config was not applied: result=%#v err=%v", result, err)
-	}
+	applyTestConfig(t, server, string(settings))
 	data := make(map[string]any, 257)
 	for index := 0; index < 257; index++ {
 		data[fmt.Sprintf("field%d", index)] = index

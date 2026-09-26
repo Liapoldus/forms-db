@@ -10,6 +10,7 @@ import (
 
 	"github.com/Liapoldus/forms-db/internal/application"
 	"github.com/Liapoldus/forms-db/internal/domain/models"
+	"github.com/Liapoldus/forms-db/internal/infrastructure/config"
 	"github.com/Liapoldus/forms-db/internal/infrastructure/security"
 	"github.com/Liapoldus/forms-db/internal/infrastructure/storage"
 	"github.com/Liapoldus/forms-db/internal/presentation/plugin"
@@ -78,7 +79,7 @@ func TestFormsListRejectsTamperedAndWrongScopeCursorsWithoutEchoing(t *testing.T
 		if err != nil {
 			t.Fatal("encode invalid cursor request")
 		}
-		response, err := server.Call(context.Background(), &pluginv1.CallRequest{Capability: "forms.list", Payload: encoded})
+		response, err := server.Call(context.Background(), &pluginv1.CallRequest{Capability: "forms.list", Payload: encoded, Grants: []*pluginv1.ActiveGrant{testCursorGrant(t)}})
 		if err != nil {
 			t.Fatal("forms.list transport call failed")
 		}
@@ -100,9 +101,10 @@ func TestFormsListRejectsTamperedAndWrongScopeCursorsWithoutEchoing(t *testing.T
 
 func TestFormsListWithoutCursorKeyFailsClosed(t *testing.T) {
 	server := plugin.NewServer(application.Service{Repository: storage.NewMemoryRepository()}, nil)
+	bootstrapTestServer(t, server, nil)
 	applySettings(t, server, `{"schemas":{"contact":{"type":"object"}}}`)
 	response, err := server.Call(context.Background(), &pluginv1.CallRequest{
-		Capability: "forms.list", Payload: []byte(`{"site":"portal","schemaName":"contact"}`),
+		Capability: "forms.list", Payload: []byte(`{"site":"portal","schemaName":"contact"}`), Grants: []*pluginv1.ActiveGrant{testCursorGrant(t)},
 	})
 	if err != nil {
 		t.Fatal("forms.list transport call failed")
@@ -125,7 +127,7 @@ type listPage struct {
 
 func callListPage(t *testing.T, server *plugin.Server, payload string) listPage {
 	t.Helper()
-	response, err := server.Call(context.Background(), &pluginv1.CallRequest{Capability: "forms.list", Payload: []byte(payload)})
+	response, err := server.Call(context.Background(), &pluginv1.CallRequest{Capability: "forms.list", Payload: []byte(payload), Grants: []*pluginv1.ActiveGrant{testCursorGrant(t)}})
 	if err != nil {
 		t.Fatal("forms.list transport call failed")
 	}
@@ -149,6 +151,10 @@ func newCursorTestServer(t *testing.T, service application.Service) *plugin.Serv
 }
 
 func newCursorTestServerWithBuilder(t *testing.T, service application.Service, builder plugin.RepositoryBuilder) *plugin.Server {
+	return newCursorTestServerWithBuilderAndConfigSecrets(t, service, builder, nil)
+}
+
+func newCursorTestServerWithBuilderAndConfigSecrets(t *testing.T, service application.Service, builder plugin.RepositoryBuilder, configSecrets map[string][]byte) *plugin.Server {
 	t.Helper()
 	key := make([]byte, 32)
 	if _, err := rand.Read(key); err != nil {
@@ -159,11 +165,37 @@ func newCursorTestServerWithBuilder(t *testing.T, service application.Service, b
 			key[index] = 0
 		}
 	}()
-	signer, err := security.NewCursorSigner(key)
-	if err != nil {
-		t.Fatal("construct cursor signer")
+	redeemer := staticGrantRedeemer{key: append([]byte(nil), key...), configSecrets: configSecrets}
+	server := plugin.NewServerWithRepositoryBuilderAndGrantRedeemer(service, builder, redeemer, nil)
+	bootstrapTestServer(t, server, redeemer)
+	return server
+}
+
+type staticGrantRedeemer struct {
+	key           []byte
+	configSecrets map[string][]byte
+}
+
+func (r staticGrantRedeemer) Redeem(_ context.Context, capability, handle, purpose, domain string) ([]byte, error) {
+	grantCapability, grantPurpose, grantDomain, ok := security.CursorGrantScope()
+	if !ok || capability != grantCapability || handle == "" || purpose != grantPurpose || domain != grantDomain {
+		return nil, security.ErrCursorKeyUnavailable
 	}
-	return plugin.NewServerWithRepositoryBuilderAndCursorSigner(service, builder, signer, nil)
+	return append([]byte(nil), r.key...), nil
+}
+
+func (r staticGrantRedeemer) RedeemConfig(_ context.Context, grant *pluginv1.ActiveGrant) ([]byte, error) {
+	purpose, ok := config.DSNSecretGrantPurpose()
+	if grant == nil || !ok || grant.GetScope() != pluginv1.GrantScope_GRANT_SCOPE_CONFIG_APPLY || grant.GetHandle() == "" ||
+		grant.GetPurpose() != purpose || grant.GetInstanceId() != testPluginInstanceID || grant.GetSettingsRevision() == "" ||
+		grant.GetCapability() != "" || len(grant.GetDomains()) != 0 {
+		return nil, security.ErrCursorKeyUnavailable
+	}
+	secret, ok := r.configSecrets[grant.GetSecretReference()]
+	if !ok {
+		return nil, security.ErrCursorKeyUnavailable
+	}
+	return append([]byte(nil), secret...), nil
 }
 
 func tamperCursor(token string) string {

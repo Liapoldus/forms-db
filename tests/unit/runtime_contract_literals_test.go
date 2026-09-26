@@ -27,7 +27,7 @@ func TestRuntimeContractValuesAreLoadedFromVersionedAssets(t *testing.T) {
 		t.Fatal("decode cursor security contract")
 	}
 	fields := []string{
-		"keyFileEnvironment", "encryption", "encryptionKeyLabel", "authentication",
+		"grantPurpose", "grantDomain", "encryption", "encryptionKeyLabel", "authentication",
 		"authenticationKeyLabel", "internalInvalidCursorError", "internalCursorKeyUnavailableError",
 	}
 	contractValues := make(map[string]struct{}, len(fields))
@@ -35,6 +35,22 @@ func TestRuntimeContractValuesAreLoadedFromVersionedAssets(t *testing.T) {
 		value, ok := contract[field].(string)
 		if !ok || value == "" {
 			t.Fatalf("cursor contract value %q is missing", field)
+		}
+		contractValues[value] = struct{}{}
+	}
+	secretSettingsPath := filepath.Join(root, "internal", "infrastructure", "config", "contracts", "secret-settings.json")
+	secretSettingsData, err := os.ReadFile(secretSettingsPath)
+	if err != nil {
+		t.Fatal("read secret settings contract")
+	}
+	var secretSettings map[string]any
+	if err := json.Unmarshal(secretSettingsData, &secretSettings); err != nil {
+		t.Fatal("decode secret settings contract")
+	}
+	for _, field := range []string{"dsnGrantPurpose", "dsnDescription", "configGrantScope", "dsnDelivery"} {
+		value, ok := secretSettings[field].(string)
+		if !ok || value == "" {
+			t.Fatalf("secret settings contract value %q is missing", field)
 		}
 		contractValues[value] = struct{}{}
 	}
