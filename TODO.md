@@ -27,6 +27,10 @@
   SQL-пути проверено на PostgreSQL 17, MySQL 8.4 и MariaDB 11.4.
 - Реализованы schema validation отправок, equality-фильтры и защищённая
   keyset-pagination с HMAC/AES cursor.
+- HTTP response-action `body` сериализуется как UTF-8 JSON string согласно
+  `pluginprotocol/contracts/http/v1/response-action.schema.json`; request body
+  остаётся base64 согласно request contract. Unit test проверяет фактический
+  JSON `CallResponse` через protocol decoder и не допускает base64 regression.
 - Удалена загрузка cursor signing key через env и файл. Gateway выдаёт
   call-scoped `ActiveGrant` для `forms.list`; плагин обращается к
   `GrantBroker.RedeemGrant` из `pluginprotocol`, создаёт signer только на время
