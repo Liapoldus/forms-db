@@ -2,6 +2,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test tests/contracts/*.test.ts"
+    "test": "vitest run tests/contracts/admin-surface.test.ts tests/contracts/delete.test.ts tests/contracts/list.test.ts && node --test tests/contracts/cursor-secret-grants.test.ts"
+  },
+  "devDependencies": {
+    "ajv": "^8.20.0",
+    "ajv-formats": "^3.0.1",
+    "vitest": "^4.0.18"
   }
 }

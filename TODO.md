@@ -12,8 +12,8 @@
 - Аудит соответствия `pluginprotocol` v1 (2026-09-25): Manifest объявляет
   capabilities `forms.submit`, `forms.list`, `forms.delete` и
   `admin.surface.get`; для каждой возвращается ровно один descriptor с mode
-  `CALL`. Admin surface загружается из единственного владельца контракта через
-  `pluginprotocol.ContractFiles()` и совпадает с его fixture. Settings
+  `CALL`. Admin surface загружается из локального contract adapter. Capability,
+  admin actions, settings и формы принадлежат самому плагину. Settings
   публикуются отдельным control RPC `ConfigSchema` и применяются через
   `ConfigApply`; `config.schema` в поле `storage.capability` admin surface —
   ссылка на этот control flow, а не capability в Manifest. Это различие не
@@ -66,18 +66,18 @@
 
 ## Осталось
 
-- **Контракт admin action закрыт в pluginprotocol v1.** `forms.delete` принимает
+- **Контракт admin action закрыт в контрактах плагина.** `forms.delete` принимает
   только `site`/`schemaName`/`id`, успешно отвечает `deleted`/`id`, а удаление
   отсутствующей записи (в том числе повторное) возвращает терминальную ошибку
   `not_found`/404. Ошибки валидации — `validation_failed`/422, а ошибки
   хранилища — повторяемая `storage_unavailable`/503. Plugin handler и SQL
   adapters должны сохранять это разделение; Gateway остаётся владельцем
   авторизации, audit и повторов.
-- **Отображение настроек через control RPC закрыто в pluginprotocol v1.** Страница
+- **Отображение настроек через control RPC описано в контракте плагина.** Страница
   `storage` задаёт `ConfigSchema`/`ConfigApply` как control flow, а поля формы
   берутся из `ConfigSchema`; эти RPC не добавляются в Manifest и не вызываются
   как `Call` capability. Плагин уже предоставляет соответствующие RPC и
-  protocol-owned admin surface.
+  plugin-owned admin surface.
 - **Осталось: end-to-end admin action orchestration.** Plugin реализует
   `forms.delete`, однако полный Gateway/Constructor flow вызова declarative
   admin actions, проверок permission, audit и безопасной передачи результата

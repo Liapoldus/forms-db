@@ -3,9 +3,9 @@ package contracts
 import (
 	"io/fs"
 
-	"github.com/Liapoldus/pluginprotocol"
+	contractassets "github.com/Liapoldus/forms-db/contracts"
 )
 
 func AdminSurface() ([]byte, error) {
-	return fs.ReadFile(pluginprotocol.ContractFiles(), "contracts/forms-db/v1/admin-surface.json")
+	return fs.ReadFile(contractassets.Files(), "v1/admin-surface.json")
 }

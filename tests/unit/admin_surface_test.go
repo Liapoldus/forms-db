@@ -3,18 +3,17 @@ package unit
 import (
 	"context"
 	"encoding/json"
-	"io/fs"
 	"testing"
 
 	"github.com/Liapoldus/forms-db/internal/application"
+	contractadapter "github.com/Liapoldus/forms-db/internal/infrastructure/contracts"
 	"github.com/Liapoldus/forms-db/internal/infrastructure/storage"
 	"github.com/Liapoldus/forms-db/internal/presentation/plugin"
-	"github.com/Liapoldus/pluginprotocol"
 	"github.com/Liapoldus/pluginprotocol/pluginv1"
 )
 
-func TestAdminSurfaceReturnsProtocolOwnedContract(t *testing.T) {
-	expected, err := fs.ReadFile(pluginprotocol.ContractFiles(), "contracts/forms-db/v1/admin-surface.json")
+func TestAdminSurfaceReturnsPluginOwnedContract(t *testing.T) {
+	expected, err := contractadapter.AdminSurface()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -51,7 +50,7 @@ func TestAdminSurfaceActionsReferenceDeclaredCallCapabilities(t *testing.T) {
 		declared[descriptor.GetCapability()] = descriptor.GetModes()[0]
 	}
 
-	contract, err := fs.ReadFile(pluginprotocol.ContractFiles(), "contracts/forms-db/v1/admin-surface.json")
+	contract, err := contractadapter.AdminSurface()
 	if err != nil {
 		t.Fatal(err)
 	}
