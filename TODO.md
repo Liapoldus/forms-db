@@ -1,5 +1,12 @@
 # TODO — forms-db v1
 
+## Документация
+
+- [x] Forms-db-owned Markdown/example перенесены в `docs/site/`; общие Core
+  страницы принадлежат Core, сайт агрегирует owner docs по pinned SHA.
+- [ ] После изменения owner docs обновить pin в
+  `liapoldus.github.io/docs-sources.json` и проверить единый сайт.
+
 ## Проверенное состояние на 2026-09-30
 
 Последний локальный commit: `2d98319`. Product contracts, replica cursor tests и

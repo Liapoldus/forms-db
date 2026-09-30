@@ -61,6 +61,15 @@ plugin instance/configuration/endpoint/policy; Server plugin обслужива�
 - Tests держать под `tests/`, не помещать fixture или Go test code в
   production packages. Использовать существующие Go + Vitest runners.
 
+## Документация
+
+- Канонические forms-db architecture, product contract guide и примеры
+  хранятся в `docs/site/`; Mermaid исходники принадлежат этому репозиторию.
+  Единый VitePress сайт синхронизирует закреплённый commit и сохраняет
+  публичные URL. Не редактировать generated copy в `liapoldus.github.io`.
+- Общий Core lifecycle описывает Core; этот репозиторий описывает только
+  forms-db-owned behavior и ссылается на опубликованные Core/SDK pages.
+
 ## Процесс и проверки
 
 - Перед работой проверить branch/HEAD/status/remotes и diff; сохранить всю
