@@ -1,5 +1,14 @@
 # TODO — forms-db v1
 
+## Проверенное состояние на 2026-09-30
+
+Последний локальный commit: `2d98319`. Product contracts, replica cursor tests и
+Admin Surface обновлены, но lifecycle миграция не выполнена: текущая команда
+`go test ./server/... ./forms-db/...` падает на импортах удалённых
+`pluginprotocol/pluginv1` и `pluginprotocol/presentation/sdk` из forms-db
+production/fixture packages. До сборки binary и Core→SDK→forms-db
+Reload/pull/ACK smoke forms-db v1 не готов.
+
 Этот файл содержит только задачи forms-db plugin. Единая граница версии и
 межрепозиторный план: [`tasks/README.md`](../../tasks/README.md) и
 [`tasks/prompts/form-plugin.md`](../../tasks/prompts/form-plugin.md). Product
