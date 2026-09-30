@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "semantics": {
+    "keyDistribution": "Every replica receives the same current Gateway-managed logical key in its per-call forms.list grant.",
+    "rotation": "The Gateway replaces the logical key for subsequent grants; the plugin keeps no previous-key fallback, so cursors issued with the old key are rejected after rotation.",
+    "replicaFailure": "Failure to redeem a cursor grant fails that forms.list call closed as storage_unavailable and does not affect another replica.",
+    "settingsRevisionBinding": "Cursor claims are bound to site, schemaName, and equality filter, not to a settings revision; cursor signing keys are per-call grants, not ConfigApply settings.",
+    "tokenVersion": "A token version other than the configured version is rejected as validation_failed."
+  },
+  "vectors": [
+    { "name": "shared-current-key-cross-replica", "expectedStatus": 200 },
+    { "name": "old-cursor-after-key-rotation", "expectedStatus": 422 },
+    { "name": "cursor-grant-unavailable-on-one-replica", "expectedStatus": 503 },
+    { "name": "unsupported-token-version", "expectedStatus": 422 }
+  ]
+}

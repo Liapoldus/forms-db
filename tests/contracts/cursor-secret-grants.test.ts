@@ -16,7 +16,8 @@ test('cursor signing key is obtained only through a request-scoped protocol gran
   assert.equal(cursorSource.includes('os.Getenv('), false);
   assert.equal(cursorSource.includes('os.ReadFile('), false);
   assert.equal(mainSource.includes('os.Getenv('), false);
-  assert.match(mainSource, /transport\.ListenInherited\(\)/);
+  assert.equal(mainSource.includes('os.Args'), false);
+  assert.match(mainSource, /transport\.ServeInheritedLocalSession\(/);
   assert.match(pluginSource, /func \(s \*Server\) Bootstrap\(/);
   assert.match(pluginSource, /DialGrantBrokerFromBootstrapContext/);
   assert.match(pluginSource, /request\.GetGrants\(\)/);

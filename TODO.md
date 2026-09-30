@@ -1,95 +1,126 @@
-# TODO — forms-db
+# TODO — forms-db v1
 
-Здесь отслеживаются только незавершённые задачи плагина. Архитектура IPC и
-общие JSON/wire-контракты принадлежат
-[pluginprotocol](https://github.com/Liapoldus/pluginprotocol); актуальная
-публичная страница продукта — [forms-db](https://liapoldus.github.io/plugins/forms-db).
+Этот файл содержит только задачи forms-db plugin. Единая граница версии и
+межрепозиторный план: [`tasks/README.md`](../../tasks/README.md) и
+[`tasks/prompts/form-plugin.md`](../../tasks/prompts/form-plugin.md). Product
+settings, capabilities, storage semantics, errors и vectors принадлежат этому
+репозиторию; lifecycle — [Plugin SDK](../../plugin-sdk/), peer transport —
+[`pluginprotocol`](../../pluginprotocol/).
 
-Актуально на 2026-09-26. Локальный Git clone не имеет настроенного remote.
+## Зафиксированная цель v1
 
-## Прогресс
+- Отдельный вручную запускаемый plugin для обработки простых форм; никаких
+  запусков/установок/рестартов со стороны Core.
+- Core сохраняет exact plugin settings JSON bytes в `active`/`previous`,
+  вызывает SDK REST `Reload(generation)`; plugin сам pull-ит named generation,
+  проверяет schema, строит candidate storage/config и после атомарного apply
+  ACK-ает digest.
+- Plugin SDK REST — единственный Core↔plugin lifecycle. `pluginprotocol` может
+  только передавать generic caller-defined plugin↔plugin messages/streams; он
+  не содержит `forms.*`, ConfigSchema/ConfigApply, grants/settings lifecycle,
+  manifests или формовых schemas.
+- Core SQLite не хранит submissions. Form data и product-owned storage
+  принадлежат forms-db; Core — plugin-agnostic и сохраняет только control-plane
+  metadata/config bytes.
+- Plugin settings, form schemas, validation, errors, query/filter/pagination,
+  cursor format, CRUD actions и Admin Surface — только contracts этого repo.
+- Constructor и `react-lib` заморожены; не менять их исходники/зависимости/tests.
 
-- Аудит соответствия `pluginprotocol` v1 (2026-09-25): Manifest объявляет
-  capabilities `forms.submit`, `forms.list`, `forms.delete` и
-  `admin.surface.get`; для каждой возвращается ровно один descriptor с mode
-  `CALL`. Admin surface загружается из локального contract adapter. Capability,
-  admin actions, settings и формы принадлежат самому плагину. Settings
-  публикуются отдельным control RPC `ConfigSchema` и применяются через
-  `ConfigApply`; `config.schema` в поле `storage.capability` admin surface —
-  ссылка на этот control flow, а не capability в Manifest. Это различие не
-  должно превращаться в специальную логику Gateway для forms-db. Имя продукта
-  и `forms.*` capabilities являются ожидаемой идентичностью самого плагина;
-  дополнительных Gateway-specific assumptions в его runtime boundary не
-  обнаружено. Неоднозначность отображения control RPC в поле `capability`
-  принадлежит общему admin-surface контракту `pluginprotocol`, а не этому
-  репозиторию.
-- Готовы адаптеры памяти, SQLite, PostgreSQL и MySQL. Интеграционное поведение
-  SQL-пути проверено на PostgreSQL 17, MySQL 8.4 и MariaDB 11.4.
-- Реализованы schema validation отправок, equality-фильтры и защищённая
-  keyset-pagination с HMAC/AES cursor.
-- HTTP response-action `body` сериализуется как UTF-8 JSON string согласно
-  `pluginprotocol/contracts/http/v1/response-action.schema.json`; request body
-  остаётся base64 согласно request contract. Unit test проверяет фактический
-  JSON `CallResponse` через protocol decoder и не допускает base64 regression.
-- Удалена загрузка cursor signing key через env и файл. Gateway выдаёт
-  call-scoped `ActiveGrant` для `forms.list`; плагин обращается к
-  `GrantBroker.RedeemGrant` из `pluginprotocol`, создаёт signer только на время
-  одного вызова и очищает полученные байты. Bootstrap принимает только
-  operational GrantBroker endpoint, settings/секреты в нём не передаются.
-- SQL DSN теперь трактуется как opaque Gateway-issued reference в settings.
-  `ConfigApply` обязан содержать revision-scoped `CONFIG_APPLY` grant с теми же
-  instance ID, settings revision и secret reference. Плагин вызывает
-  `GrantClient.RedeemConfig`, строит repository до атомарной замены активной
-  конфигурации и не сохраняет DSN в settings после успешного применения.
-  Неудачный grant или repository setup сохраняет предыдущую конфигурацию.
-- Плагин принимает inherited loopback listener через `transport.ListenInherited`;
-  production entrypoint не читает application settings, endpoint или cursor
-  key из environment и не загружает application config files.
-- Админ-поверхность пока read-only: `admin.surface.get` публикует декларативный
-  контракт, но изменяющие admin actions не исполняются.
+## Зафиксированные product semantics
 
-## Аудит мёртвого кода
+- Повторное удаление отсутствующей записи даёт терминальный `not_found`.
+- Form values валидируются по активной plugin-owned schema до записи.
+- Query pagination использует bounded keyset cursor, не offset scan; cursor не
+  является авторизацией и не расширяет scope данных.
+- Cursor signing secret выдаётся call-scoped; DSN выдаётся по
+  instance/revision-scoped grant, раскрытое значение остаётся только в памяти
+  активного runtime generation и очищается при смене поколения/остановке.
+- Admin Surface предназначен для записей/операций plugin. Настройка общих
+  settings не осуществляется устаревшей control RPC-формой `ConfigSchema` /
+  `ConfigApply`; она идёт через generic Core settings API.
+- Текущие storage adapters и migrations сначала инвентаризировать. Не считать
+  PostgreSQL/S3 Core dependencies; не удалять формы-драйвер, пока не доказано,
+  что он не входит в отдельный product scope.
 
-- Go package graph включает composition root, protocol adapter, config,
-  contracts, storage, security и application packages; их production-файлы
-  имеют runtime или test consumers. Устаревший Gateway smoke script удалён:
-  `rg` подтвердил отсутствие CI/build/code callers, а bootstrap schema отвергает
-  создаваемые им `listeners/routes`; сценарий не доходил до plugin dispatch.
-  Admin action handler остаётся, поскольку forms-db его явно объявляет, но не
-  расширяется без подтверждённого versioned contract.
-- Удалён неиспользуемый `NewServerWithCursorSigner`: у него не было call sites;
-  lifecycle cursor signing теперь зависит от GrantBroker adapter-а, а не от
-  заранее внедрённого долговечного signer-а.
-- Для этого security boundary добавлены исполняемые Node TypeScript contract
-  tests (`npm test`); Go unit/integration tests остаются основным поведением
-  плагина.
+## P0 — миграция Core lifecycle
 
-## Осталось
+- [ ] Перенести `cmd/forms-db` на Plugin SDK registration/bootstrap, health,
+  readiness, `Reload`, exact config pull, digest ACK, metrics и structured logs.
+- [ ] Добавить реальные per-replica mTLS listener/client identities и
+  fail-closed verification. Не добавлять plaintext/bearer fallback.
+- [ ] Перенести ConfigSchema/ConfigApply settings parsing/application с
+  `pluginprotocol` в SDK plugin-owned schema/applier hooks; migrate runtime,
+  tests, fixtures, generated references и go.work imports как единый breaking
+  slice.
+- [ ] Удалить gRPC Bootstrap/Manifest/ConfigSchema/ConfigApply/Shutdown service,
+  code, assets и lifecycle tests после проверки отсутствия всех consumers.
+- [ ] Прекратить чтение product config из env/argv/config files. При недоступном
+  Core/grant не применять фиктивные default DB credentials.
+- [ ] Обновить admin-surface contract и tests: удалить control-RPC config page;
+  оставить product data/actions и безопасные scopes.
 
-- **Контракт admin action закрыт в контрактах плагина.** `forms.delete` принимает
-  только `site`/`schemaName`/`id`, успешно отвечает `deleted`/`id`, а удаление
-  отсутствующей записи (в том числе повторное) возвращает терминальную ошибку
-  `not_found`/404. Ошибки валидации — `validation_failed`/422, а ошибки
-  хранилища — повторяемая `storage_unavailable`/503. Plugin handler и SQL
-  adapters должны сохранять это разделение; Gateway остаётся владельцем
-  авторизации, audit и повторов.
-- **Отображение настроек через control RPC описано в контракте плагина.** Страница
-  `storage` задаёт `ConfigSchema`/`ConfigApply` как control flow, а поля формы
-  берутся из `ConfigSchema`; эти RPC не добавляются в Manifest и не вызываются
-  как `Call` capability. Плагин уже предоставляет соответствующие RPC и
-  plugin-owned admin surface.
-- **Осталось: end-to-end admin action orchestration.** Plugin реализует
-  `forms.delete`, однако полный Gateway/Constructor flow вызова declarative
-  admin actions, проверок permission, audit и безопасной передачи результата
-  должен быть подтверждён общей integration/conformance suite. Не дублировать
-  его как специальную логику forms-db.
-- Добавить актуальный Caddy-based Gateway child-process smoke для SQL-backed
-  работы с общей БД при нескольких plugin replicas; проверить, что одинаковый
-  Gateway-managed cursor secret через call-scoped grants валидирует cursor на
-  другой replica, а его rotation инвалидирует старые cursors.
-- Уточнить и проверить Gateway side: каждый SQL plugin instance получает только
-  opaque DSN reference; `ConfigApply` выдаёт revision-scoped config grant, а
-  отказ grant/repository setup не открывает candidate revision в dispatch.
-- Установить и подтвердить канонический Git remote для этого репозитория, затем
-  опубликовать проверенные локальные commits. Сейчас remote отсутствует; URL не
-  угадывать.
+## P1 — config/repository lifecycle
+
+- [ ] Строго проверить settings JSON/JSON Schema, unknown keys, size/depth,
+  duplicate keys и secret-ref forms на границе Plugin SDK без потери raw bytes.
+- [ ] Новый generation сначала создаёт candidate repository и компилирует все
+  form schemas; только при полном успехе атомарно заменяет активную пару
+  repository+schema+generation.
+- [ ] На invalid DSN/grant/schema/migration/open failure сохранить старый
+  repository и принимать запросы прежнего active generation до согласованного
+  fencing поведения.
+- [ ] Зафиксировать storage driver allow-list, transaction/connection pool
+  defaults, schema/table prefix constraints, migration ownership, persistent
+  volumes, backup/restore и startup recovery для каждого разрешённого driver.
+- [ ] Установить limits для schema size/depth, form value/body size, field count,
+  batch/read limits, filters, cursor length, database timeout/concurrency и
+  admin page results; contract + executable boundary tests обязательны.
+- [ ] Разделить storage errors: отсутствующая запись = `not_found`, transient
+  outage = retryable service error, invalid data = validation error; не выдавать
+  SQL driver message, query, DSN или path наружу.
+
+## P2 — capabilities, grants и Admin Surface
+
+- [ ] Проверить generic capability registration и route/action mapping без
+  protocol-defined `forms.*` messages; объявить только реально реализованные
+  forms methods в plugin-owned Manifest/schema.
+- [ ] End-to-end установить caller→target policy для Server → forms-db в Core;
+  plugin-to-plugin calls идут напрямую, Core не проксирует submission payload.
+- [ ] Cursor grant: связать grant с replica/caller, invocation ID, site/schema/
+  filter scope, bounded expiry и one-use. Проверить multi-replica continuation,
+  invalid signature/version, key rotation и grant failure; не хранить signing
+  keys в plugin DB.
+- [ ] DSN grant: привязать к instance+config generation+purpose; выдать только
+  до открытия candidate repository, не переиспользовать после нового
+  generation, очищать in-memory secret при замене/закрытии.
+- [ ] Admin actions: list, delete, pagination и operation/status; явная
+  idempotency, page permission, delete confirmation, audit/redaction принадлежат
+  соответствующим owners. Не добавлять отдельный plugin admin listener.
+- [ ] Провести негативные проверки: cross-instance read/delete, wrong capability,
+  revoked/stale grant, malicious filters/schema, oversized input, timing races,
+  cursor tampering/replay и storage outage.
+
+## P3 — tests и release quality
+
+- [ ] Child-process SDK/mTLS conformance: startup, Reload/pull/ACK, invalid config
+  сохранение прежнего state, operator restart, Core unavailable и recovery.
+- [ ] Реальный SQL-backed integration: миграция, restart persistence, concurrent
+  submit/list/delete, rollback candidate и отказ DB. Memory adapter не заменяет
+  persistent acceptance.
+- [ ] Межрепозиторный Server → protocol → forms-db dispatch: разрешённый вызов
+  проходит напрямую; deny policy/mTLS failure не вызывает forms-db; Core API не
+  видел user payload.
+- [ ] Два процесса forms-db проверяют cursor continuation и independent
+  readiness/generation fencing. Grants и records не утекли в logs/errors/metrics.
+- [ ] Проверить plugin-owned contracts/vectors против runtime, Test fixtures не
+  подменяют настоящий process и settings.
+- [ ] Пройти `go test ./...`, `go build ./...`, `go vet ./...`, TypeScript suite,
+  child-process security/integration, macOS/Linux build и совместную acceptance
+  с Core/SDK/Server. Не фиксировать исторический PASS как актуальный.
+
+## Не входит в v1
+
+CAPTCHA, Identity/OIDC/OAuth, TUF и plugin install/update, управляемые Core
+processes, Docker/Compose/Swarm/Kubernetes, Constructor/React UI changes,
+protocol-defined forms methods, Core-specific storage/backends. Эти функции не
+добавлять в contracts, schema, dependencies или binary.

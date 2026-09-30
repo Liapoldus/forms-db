@@ -9,8 +9,11 @@
 pagination реализованы. Для постоянного хранилища поддерживаются SQLite,
 PostgreSQL и MySQL; MySQL-совместимость проверена также на MariaDB. Полное
 выполнение declarative admin actions ещё не готово. `admin.surface.get`
-возвращает read-only contract из `pluginprotocol`. Memory repository оставлен
-для детерминированных smoke-тестов.
+возвращает read-only contract из `pluginprotocol`. Страница submissions
+требует одновременно `plugins.forms-db.read` и `plugins.forms-db.write`, потому
+что включает destructive delete action; v1 применяет page-level permissions
+ко всей странице и не вводит action-level permission semantics. Memory
+repository оставлен для детерминированных smoke-тестов.
 
 ## Семантика пагинации по cursor
 
@@ -77,9 +80,16 @@ descriptor. Плагин не читает environment или application config
 старте Gateway выполняет typed `Bootstrap`, затем отправляет `ConfigApply` и
 проверяет health до подключения плагина к dispatch.
 
-Current Gateway child-process smoke is not yet available. The former script
-generated a retired `listeners/routes` bootstrap document and did not validate
-the current Caddy runtime; a replacement is tracked in `TODO.md`.
+The SDK-level supervised child-process integration test is available at
+`tests/integration/child_process_test.go`. It launches the real forms-db binary
+with the inherited listener and private local mTLS bootstrap, then checks
+`Manifest`, `ConfigSchema`, revision-scoped DSN grant redemption during
+`ConfigApply`, replica-bound `DispatchApply`, and health readiness. It exercises
+`forms.submit`, `forms.list`, and `forms.delete`, and verifies SQLite data
+survives a child-process restart. This proves the forms-db ↔ pluginprotocol
+local lifecycle; it is not a Core Gateway → Caddy public-traffic E2E. The full
+Gateway-to-Caddy traffic smoke remains pending; the former script generated a
+retired `listeners/routes` bootstrap document and is not used.
 
 ## Архитектура
 

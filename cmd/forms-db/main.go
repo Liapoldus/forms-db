@@ -18,28 +18,12 @@ import (
 func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
-	listener, err := transport.ListenInherited()
-	if err != nil {
-		log.Printf("forms-db listen failed: %v", err)
-		os.Exit(1)
-	}
-	defer listener.Close()
-	var stop func()
 	pluginServer := plugin.NewServerWithRepositoryBuilderAndGrantRedeemer(
-		application.Service{Repository: storage.NewMemoryRepository()}, buildRepository, nil, func() { stop() },
+		application.Service{Repository: storage.NewMemoryRepository()}, buildRepository, nil, nil,
 	)
-	server := transport.NewServer(pluginServer, transport.ServerOptions{})
-	stop = server.GracefulStop
-	serveErr := make(chan error, 1)
-	go func() { serveErr <- server.Serve(listener) }()
-	select {
-	case <-ctx.Done():
-		server.GracefulStop()
-	case err := <-serveErr:
-		if err != nil {
-			log.Printf("forms-db server stopped: %v", err)
-			os.Exit(1)
-		}
+	if err := transport.ServeInheritedLocalSession(ctx, pluginServer, transport.ServerOptions{}); err != nil {
+		log.Printf("forms-db server stopped: %v", err)
+		os.Exit(1)
 	}
 }
 
