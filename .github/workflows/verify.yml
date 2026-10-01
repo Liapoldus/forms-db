@@ -27,6 +27,14 @@ jobs:
         with:
           repository: Liapoldus/plugin-sdk
           path: plugin-sdk
+      # The child-process scenario starts the real Server plugin as its child and
+      # resolves it as the sibling ../server, so the Server checkout is part of
+      # this gate rather than an optional extra.
+      - name: Checkout server
+        uses: actions/checkout@v4
+        with:
+          repository: Liapoldus/server
+          path: plugins/server
       - uses: actions/setup-go@v6
         with:
           go-version-file: plugins/forms-db/go.mod
