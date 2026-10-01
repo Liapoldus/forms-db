@@ -2,3 +2,4 @@
 /coverage.out
 /tmp/
 node_modules/
+/child-process
