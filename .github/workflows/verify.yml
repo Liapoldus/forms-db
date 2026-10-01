@@ -1,0 +1,53 @@
+name: verify
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      # forms-db consumes pluginprotocol and the Plugin SDK through sibling
+      # replace directives (../../pluginprotocol, ../../plugin-sdk), so the
+      # checkouts must mirror the workspace layout the module declares.
+      - uses: actions/checkout@v4
+        with:
+          path: plugins/forms-db
+      - name: Checkout pluginprotocol
+        uses: actions/checkout@v4
+        with:
+          repository: Liapoldus/pluginprotocol
+          path: pluginprotocol
+      - name: Checkout plugin-sdk
+        uses: actions/checkout@v4
+        with:
+          repository: Liapoldus/plugin-sdk
+          path: plugin-sdk
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: plugins/forms-db/go.mod
+      # Node >= 22.6 is required: the cursor-secret-grants contract runs a .ts
+      # file directly through `node --test`, which needs native type stripping.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: plugins/forms-db/package-lock.json
+      - name: Go build
+        run: go build ./...
+        working-directory: plugins/forms-db
+      - name: Go vet
+        run: go vet ./...
+        working-directory: plugins/forms-db
+      - name: Go tests
+        run: go test ./...
+        working-directory: plugins/forms-db
+      # The suite drives real mTLS config pulls, peer dispatch and a SQLite
+      # child process, so it is the behavioural gate and not a mock-level check.
+      - name: TypeScript contract suite
+        run: npm ci && npm test
+        working-directory: plugins/forms-db

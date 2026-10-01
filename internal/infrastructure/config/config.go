@@ -12,6 +12,7 @@ import (
 type Settings struct {
 	Driver          string                     `json:"driver"`
 	DSNReference    string                     `json:"dsn"`
+	CursorSecretRef string                     `json:"cursorSecretRef"`
 	DSN             []byte                     `json:"-"`
 	TablePrefix     string                     `json:"tablePrefix"`
 	Schemas         map[string]json.RawMessage `json:"schemas"`

@@ -43,6 +43,8 @@ plugin instance/configuration/endpoint/policy; Server plugin обслужива�
   Сохранять только документированные storage adapters. Не добавлять storage
   service для Core и не удалять существующий forms adapter без owner decision и
   migration/recovery evidence.
+- Утверждённые v1 backends forms-db: SQLite, MySQL/MariaDB и PostgreSQL. Это
+  product storage плагина, а не Core dependency. Core остаётся SQLite-only.
 - Cursor secret выдаётся call-scoped grant; cursor bounded, integrity-protected
   и привязан к product query context. Не сохранять grant/cursor key или
   plaintext secret в долговременном storage.

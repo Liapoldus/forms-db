@@ -46,13 +46,6 @@
           ]
         }
       ]
-    },
-    {
-      "id": "storage",
-      "title": "Storage configuration",
-      "control": { "settingsSchemaRpc": "ConfigSchema", "settingsApplyRpc": "ConfigApply" },
-      "permissions": ["plugins.forms-db.write"],
-      "sections": [{ "id": "settings", "kind": "form", "fieldsFromControlRpc": "ConfigSchema" }]
     }
   ]
 }

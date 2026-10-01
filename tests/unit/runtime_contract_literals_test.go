@@ -47,7 +47,7 @@ func TestRuntimeContractValuesAreLoadedFromVersionedAssets(t *testing.T) {
 	if err := json.Unmarshal(secretSettingsData, &secretSettings); err != nil {
 		t.Fatal("decode secret settings contract")
 	}
-	for _, field := range []string{"dsnGrantPurpose", "dsnDescription", "configGrantScope", "dsnDelivery"} {
+	for _, field := range []string{"dsnGrantPurpose", "dsnDescription", "sdkGrantScope", "dsnDelivery"} {
 		value, ok := secretSettings[field].(string)
 		if !ok || value == "" {
 			t.Fatalf("secret settings contract value %q is missing", field)

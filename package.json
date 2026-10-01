@@ -2,7 +2,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "vitest run tests/contracts/admin-surface.test.ts tests/contracts/delete.test.ts tests/contracts/list.test.ts && node --test tests/contracts/cursor-secret-grants.test.ts"
+    "test": "vitest run tests/contracts/admin-surface.test.ts tests/contracts/delete.test.ts tests/contracts/list.test.ts tests/contracts/settings.test.ts tests/integration && node --test tests/contracts/cursor-secret-grants.test.ts"
   },
   "devDependencies": {
     "ajv": "^8.20.0",

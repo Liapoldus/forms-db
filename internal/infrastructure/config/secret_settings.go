@@ -10,24 +10,24 @@ import (
 var secretSettingsContractJSON []byte
 
 type secretSettingsContract struct {
-	Version                int    `json:"version"`
-	DSNField               string `json:"dsnField"`
-	DSNType                string `json:"dsnType"`
-	DSNDelivery            string `json:"dsnDelivery"`
-	DSNGrantPurpose        string `json:"dsnGrantPurpose"`
-	DSNDescription         string `json:"dsnDescription"`
-	ConfigGrantScope       string `json:"configGrantScope"`
-	ActiveStorage          string `json:"activeStorage"`
-	RawSecretInConfigApply bool   `json:"rawSecretInConfigApply"`
-	RawSecretInLogs        bool   `json:"rawSecretInLogs"`
-	RawSecretInResponses   bool   `json:"rawSecretInResponses"`
+	Version              int    `json:"version"`
+	DSNField             string `json:"dsnField"`
+	DSNType              string `json:"dsnType"`
+	DSNDelivery          string `json:"dsnDelivery"`
+	DSNGrantPurpose      string `json:"dsnGrantPurpose"`
+	DSNDescription       string `json:"dsnDescription"`
+	SDKGrantScope        string `json:"sdkGrantScope"`
+	ActiveStorage        string `json:"activeStorage"`
+	RawSecretInReload    bool   `json:"rawSecretInReload"`
+	RawSecretInLogs      bool   `json:"rawSecretInLogs"`
+	RawSecretInResponses bool   `json:"rawSecretInResponses"`
 }
 
 func loadSecretSettingsContract() (secretSettingsContract, error) {
 	var contract secretSettingsContract
 	if err := json.Unmarshal(secretSettingsContractJSON, &contract); err != nil || contract.Version != 1 ||
 		contract.DSNField == "" || contract.DSNType != "secret" || contract.DSNDelivery == "" || contract.DSNGrantPurpose == "" || contract.DSNDescription == "" ||
-		contract.ConfigGrantScope == "" || contract.ActiveStorage == "" || contract.RawSecretInConfigApply ||
+		contract.SDKGrantScope == "" || contract.ActiveStorage == "" || contract.RawSecretInReload ||
 		contract.RawSecretInLogs || contract.RawSecretInResponses {
 		return secretSettingsContract{}, errors.New("invalid secret settings contract")
 	}

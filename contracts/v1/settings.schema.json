@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://liapoldus.github.io/plugins/forms-db/settings/v1/schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["driver", "schemas"],
+  "properties": {
+    "driver": { "type": "string", "enum": ["sqlite", "mysql", "postgres", "memory"] },
+    "dsn": { "type": "string", "minLength": 1, "maxLength": 1024, "description": "Opaque secret reference; never a connection string." },
+    "cursorSecretRef": { "type": "string", "minLength": 1, "maxLength": 1024, "description": "Opaque reference used only for per-call cursor signing grants." },
+    "tablePrefix": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,31}$" },
+    "schemas": {
+      "type": "object",
+      "additionalProperties": { "type": "object" }
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "driver": { "const": "memory" } }, "required": ["driver"] },
+      "then": { "properties": { "dsn": false } },
+      "else": { "properties": { "dsn": { "type": "string" } }, "required": ["dsn"] }
+    }
+  ]
+}

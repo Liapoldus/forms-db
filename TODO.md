@@ -9,17 +9,20 @@
 
 ## Проверенное состояние на 2026-09-30
 
-Последний локальный commit: `2d98319`. Product contracts, replica cursor tests и
-Admin Surface обновлены, но lifecycle миграция не выполнена: текущая команда
-`go test ./server/... ./forms-db/...` падает на импортах удалённых
-`pluginprotocol/pluginv1` и `pluginprotocol/presentation/sdk` из forms-db
-production/fixture packages. До сборки binary и Core→SDK→forms-db
-Reload/pull/ACK smoke forms-db v1 не готов.
+Рабочее дерево содержит незакоммиченный переход на Plugin SDK: вручную
+запускаемый binary, SDK REST `Reload`/exact pull/ACK, plugin-owned settings
+schema, generic peer handlers и новые TypeScript integration fixtures.
+`GOWORK=off go build ./...`, `go test ./...`, `go vet ./...` и `npm test`
+прошли локально после добавления child-process fixture (10 Vitest файлов,
+18 тестов и 2 Node contract tests). Новая fixture запускает
+настоящий binary: mTLS Reload→exact pull→DSN grant→ACK, peer submit и
+SQLite persistence после рестарта. Это ещё не production Core→SDK→forms-db
+E2E; forms-db v1 пока не готов.
 
 Этот файл содержит только задачи forms-db plugin. Единая граница версии и
-межрепозиторный план: [`tasks/README.md`](../../tasks/README.md) и
-[`tasks/prompts/form-plugin.md`](../../tasks/prompts/form-plugin.md). Product
-settings, capabilities, storage semantics, errors и vectors принадлежат этому
+межрепозиторный план: [`tasks/README.md`](../../tasks/README.md) и единый
+[v1 prompt](../../tasks/CORE_V1_CODEX_SOL.md). Product settings, capabilities,
+storage semantics, errors и vectors принадлежат этому
 репозиторию; lifecycle — [Plugin SDK](../../plugin-sdk/), peer transport —
 [`pluginprotocol`](../../pluginprotocol/).
 
@@ -54,25 +57,25 @@ settings, capabilities, storage semantics, errors и vectors принадлеж�
 - Admin Surface предназначен для записей/операций plugin. Настройка общих
   settings не осуществляется устаревшей control RPC-формой `ConfigSchema` /
   `ConfigApply`; она идёт через generic Core settings API.
-- Текущие storage adapters и migrations сначала инвентаризировать. Не считать
-  PostgreSQL/S3 Core dependencies; не удалять формы-драйвер, пока не доказано,
-  что он не входит в отдельный product scope.
+- Утверждённые v1 backends forms-db: SQLite, MySQL/MariaDB и PostgreSQL. Это
+  product storage плагина, а не Core dependency. Для каждого backend проверить
+  migrations, transactions, pool limits, persistence и backup/restore.
 
 ## P0 — миграция Core lifecycle
 
-- [ ] Перенести `cmd/forms-db` на Plugin SDK registration/bootstrap, health,
+- [x] Перенести `cmd/forms-db` на Plugin SDK registration/bootstrap, health,
   readiness, `Reload`, exact config pull, digest ACK, metrics и structured logs.
 - [ ] Добавить реальные per-replica mTLS listener/client identities и
   fail-closed verification. Не добавлять plaintext/bearer fallback.
-- [ ] Перенести ConfigSchema/ConfigApply settings parsing/application с
+- [x] Перенести ConfigSchema/ConfigApply settings parsing/application с
   `pluginprotocol` в SDK plugin-owned schema/applier hooks; migrate runtime,
   tests, fixtures, generated references и go.work imports как единый breaking
   slice.
 - [ ] Удалить gRPC Bootstrap/Manifest/ConfigSchema/ConfigApply/Shutdown service,
   code, assets и lifecycle tests после проверки отсутствия всех consumers.
-- [ ] Прекратить чтение product config из env/argv/config files. При недоступном
+- [x] Прекратить чтение product config из env/argv/config files. При недоступном
   Core/grant не применять фиктивные default DB credentials.
-- [ ] Обновить admin-surface contract и tests: удалить control-RPC config page;
+- [x] Обновить admin-surface contract и tests: удалить control-RPC config page;
   оставить product data/actions и безопасные scopes.
 
 ## P1 — config/repository lifecycle
@@ -85,9 +88,13 @@ settings, capabilities, storage semantics, errors и vectors принадлеж�
 - [ ] На invalid DSN/grant/schema/migration/open failure сохранить старый
   repository и принимать запросы прежнего active generation до согласованного
   fencing поведения.
-- [ ] Зафиксировать storage driver allow-list, transaction/connection pool
-  defaults, schema/table prefix constraints, migration ownership, persistent
-  volumes, backup/restore и startup recovery для каждого разрешённого driver.
+- [ ] Проверить allow-list SQLite, MySQL/MariaDB и PostgreSQL; закрепить
+  transaction/connection pool defaults, schema/table prefix constraints,
+  migration ownership, persistence, backup/restore и startup recovery для
+  каждого backend. Другие drivers не поддерживать в v1. PostgreSQL repository
+  contract прошёл на временном PostgreSQL 17 (2026-09-30); полный пакет тестов
+  пока не собирается из-за старых lifecycle imports, а остальные пункты
+  данного gate остаются открытыми.
 - [ ] Установить limits для schema size/depth, form value/body size, field count,
   batch/read limits, filters, cursor length, database timeout/concurrency и
   admin page results; contract + executable boundary tests обязательны.
@@ -100,8 +107,10 @@ settings, capabilities, storage semantics, errors и vectors принадлеж�
 - [ ] Проверить generic capability registration и route/action mapping без
   protocol-defined `forms.*` messages; объявить только реально реализованные
   forms methods в plugin-owned Manifest/schema.
-- [ ] End-to-end установить caller→target policy для Server → forms-db в Core;
-  plugin-to-plugin calls идут напрямую, Core не проксирует submission payload.
+- [ ] Реализовать caller→target allow/deny policy для Server → forms-db на
+  стороне вызывающего plugin и применять её через generic `pluginprotocol`
+  authorizer. Core не имеет peer-policy API в v1 и не проксирует payload;
+  централизованное управление peer policy отложено до v2.
 - [ ] Cursor grant: связать grant с replica/caller, invocation ID, site/schema/
   filter scope, bounded expiry и one-use. Проверить multi-replica continuation,
   invalid signature/version, key rotation и grant failure; не хранить signing
@@ -118,13 +127,18 @@ settings, capabilities, storage semantics, errors и vectors принадлеж�
 
 ## P3 — tests и release quality
 
-- [ ] Child-process SDK/mTLS conformance: startup, Reload/pull/ACK, invalid config
-  сохранение прежнего state, operator restart, Core unavailable и recovery.
+- [ ] Child-process SDK/mTLS conformance: startup, Reload/pull/ACK и operator
+  restart c SQLite persistence покрыты `child-process-sdk.test.ts`; добавить
+  invalid config с сохранением прежнего state, Core unavailable/recovery,
+  revoked identity и настоящий production Core.
 - [ ] Реальный SQL-backed integration: миграция, restart persistence, concurrent
   submit/list/delete, rollback candidate и отказ DB. Memory adapter не заменяет
   persistent acceptance.
-- [ ] Межрепозиторный Server → protocol → forms-db dispatch: разрешённый вызов
-  проходит напрямую; deny policy/mTLS failure не вызывает forms-db; Core API не
+- [ ] Межрепозиторный Server → protocol → forms-db dispatch: разрешённый
+  HTTP→peer→SQL вызов проходит в child-process smoke с настоящими Server и
+  forms-db (2026-10-01); отдельный вызывающий с доверенным CA, но неверной
+  URI identity получает `unauthorized` до обработки submit. Ещё проверить
+  отказ peer mTLS при недоверенном CA и доказать, что production Core API не
   видел user payload.
 - [ ] Два процесса forms-db проверяют cursor continuation и independent
   readiness/generation fencing. Grants и records не утекли в logs/errors/metrics.

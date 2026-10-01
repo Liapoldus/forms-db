@@ -6,15 +6,13 @@ import { describe, expect, it } from "vitest";
 const root = fileURLToPath(new URL("../..", import.meta.url));
 
 describe("forms-db-owned admin surface contract", () => {
-  it("declares plugin capabilities and renders settings through control RPCs", async () => {
+  it("declares only product capabilities; common settings belong to Core API", async () => {
     const surfaceSource = await readFile(`${root}/contracts/v1/admin-surface.json`, "utf8");
     const surface = JSON.parse(surfaceSource);
-    const storage = surface.pages.find((page: { id: string }) => page.id === "storage");
-
     expect(surface.requiredCapabilities).toEqual(["admin.surface.get", "forms.list", "forms.delete"]);
-    expect(storage.control).toEqual({ settingsSchemaRpc: "ConfigSchema", settingsApplyRpc: "ConfigApply" });
-    expect(storage.sections[0].fieldsFromControlRpc).toBe("ConfigSchema");
-    expect(storage).not.toHaveProperty("capability");
+    expect(surface.pages.map((page: { id: string }) => page.id)).toEqual(["submissions"]);
+    expect(surfaceSource).not.toContain("ConfigApply");
+    expect(surfaceSource).not.toContain("ConfigSchema");
   });
 
   it("requires read and write permissions for the page that exposes delete actions", async () => {

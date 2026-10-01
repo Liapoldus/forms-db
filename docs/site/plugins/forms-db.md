@@ -17,14 +17,14 @@ settings и их schema остаются контрактом forms-db. `pluginp
 | `forms.submit` | unary | сохранить отправку формы |
 | `forms.list` | unary | список отправок |
 | `forms.delete` | unary | удалить отправку |
-| `admin.surface.get` | control | декларация страниц forms-db в Constructor |
+| `admin.surface.get` | unary | декларация страницы forms-db в Constructor |
 
 ## Business contract
 
 Канонические JSON Schema requests/responses и mapping typed errors принадлежат
 forms-db plugin и хранятся в его `contracts/v1/`. Общий plugin interface переносит
 эти payloads как opaque JSON и не содержит forms-db contract.
-`site` Core берёт из route target, а не от клиента.
+Для публичной формы `site` задаёт доверенная маршрутизация Server-плагина, а не поле браузерского запроса.
 
 ### `forms.submit`
 
@@ -42,7 +42,7 @@ forms-db plugin и хранятся в его `contracts/v1/`. Общий plugin
 plugin-owned schema; Core не декодирует продуктовые поля. Плагин не получает
 secret bytes или локальные file paths. Для SQL
 DSN конфигурация содержит только opaque secret reference; Core выдаёт через
-Plugin SDK REST instance/revision-scoped grant, по которому plugin отдельно
+Plugin SDK REST instance/generation-scoped grant, по которому plugin отдельно
 redeem-ит DSN у Core. DSN живёт только в памяти активной ревизии и
 заменяется атомарно при успешном применении новой конфигурации. Внешняя загрузка
 схем и удалённые `$ref` запрещены:
@@ -75,8 +75,8 @@ cursor с другим site, schema или фильтром отклоняетс
 scope плагин возвращает общий отказ без раскрытия содержимого cursor.
 Срок действия cursor — 15 минут с момента выдачи.
 
-Ключ подписи не является plugin setting: Core выдаёт plugin-у краткоживущий
-scoped grant для `forms.list`, а plugin получает значение через отдельный
+Ключ подписи не входит в настройки как значение: `cursorSecretRef` указывает
+на секрет Core, а plugin запрашивает scoped grant для `forms.list` через отдельный
 Plugin SDK REST grant-redemption endpoint при обработке конкретного вызова.
 Ключ не читается из env или локального файла и не сохраняется plugin-ом между
 вызовами; он очищается после создания/использования signer-а. При отсутствии
@@ -97,10 +97,10 @@ logical key через индивидуальные scoped grants. После р
 
 ## Конфиг instance
 
-Поддерживаются драйверы `memory`, `sqlite`, `postgres` и `mysql`. `memory` —
-значение по умолчанию и не сохраняет записи после перезапуска. SQLite сохраняет
-их в указанном файле; PostgreSQL и MySQL подключаются через DSN, полученный по
-Core-scoped grant. Код содержит SQL adapters для обоих драйверов.
+Поддерживаются драйверы `memory`, `sqlite`, `postgres` и `mysql`. `memory` не
+сохраняет записи после перезапуска и предназначен для локальной проверки.
+Для persistent-драйверов DSN всегда получается по Core-scoped grant; в
+settings допускается только opaque reference. MariaDB использует `mysql`.
 
 Пример versioned JSON settings document, который forms-db запрашивает у Core
 после `Reload` (это не локальный application-config файл plugin):
@@ -108,22 +108,26 @@ Core-scoped grant. Код содержит SQL adapters для обоих дра
 ```json
 {
   "driver": "sqlite",
-  "dsn": "data/forms.db",
+  "dsn": "secret://forms/sqlite-dsn",
+  "cursorSecretRef": "secret://forms/cursor-key",
+  "schemas": {"contact": {"type": "object", "properties": {"name": {"type": "string"}}}},
   "tablePrefix": "form_"
 }
 ```
 
 | Ключ | Назначение | По умолчанию |
 | --- | --- | --- |
-| `driver` | `memory`, `sqlite`, `postgres` или `mysql` | `memory` |
-| `dsn` | Для SQLite — путь к файлу БД; для PostgreSQL/MySQL — opaque Core secret reference. Для `memory` не используется | — |
+| `driver` | `memory`, `sqlite`, `postgres` или `mysql` | обязателен |
+| `schemas` | именованные JSON Schema принимаемых форм | обязателен |
+| `dsn` | opaque Core secret reference для любого persistent-драйвера; для `memory` запрещён | — |
+| `cursorSecretRef` | opaque reference для подписи курсоров `forms.list` | — |
 | `tablePrefix` | префикс таблиц плагина | `form_` |
 
-Для SQLite путь `dsn` разрешается внутри plugin-owned data directory; используйте
-постоянный volume, если данные должны переживать пересоздание контейнера. Для
-PostgreSQL/MySQL settings содержат только opaque secret reference: Core выдаёт
-instance/revision-scoped grant при конфигурировании, а plugin получает реальный
-DSN отдельно и держит его в памяти активной revision до её замены или остановки.
+Для SQLite значение секрета может быть абсолютным путём к plugin-owned файлу;
+для PostgreSQL/MySQL — строкой подключения. Core выдаёт
+instance/generation-scoped grant при конфигурировании, а plugin получает
+реальный DSN отдельно и держит его в памяти активного поколения до его замены
+или остановки.
 
 Декларация плагина и привязка capability к маршруту — общий синтаксис
 [«Обзор и настройка»](/plugins/).
@@ -144,7 +148,7 @@ go test ./...
 
 ## Страницы в Constructor
 
-forms-db публикует две declarative admin pages через общий
+forms-db публикует одну declarative admin page через общий
 [Plugin Admin Pages](/plugins/admin-pages) contract. Он не поставляет React
 код и не открывает отдельный endpoint.
 
@@ -173,16 +177,8 @@ Surface action объявляет `inputSchema` для `recordId` и `rowInput`
 `{"recordId":"id"}`; поэтому UI передаёт ровно ID выбранной строки, а не весь
 объект submission.
 
-### Storage configuration
-
-Страница видна при `plugins.forms-db.write` и рендерит уже существующую
-`config.schema`: `driver`, `dsn`, `tablePrefix`. `dsn` является `secret`
-write-only field. Save отправляет новый `plugins.<instance>.settings` через
-стандартный Core config update с active-generation precondition;
-Management API получает settings JSON document напрямую в body, без wrapper.
-После успешного обновления Core сохраняет исходные bytes, активирует generation
-и вызывает REST `Reload`; forms-db pull-ит точную generation. После применения
-Core invalidates surface cache and
-Constructor refreshes schema/status.
+Настройки хранилища не являются отдельной capability или страницей плагина.
+Их редактирование идёт через общий Core config API: raw JSON document без
+обёртки, CAS-предусловие, новое поколение и REST `Reload` с точным pull.
 
 Reference surface fixture: plugin-owned `contracts/v1/admin-surface.json`.
