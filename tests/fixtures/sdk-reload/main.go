@@ -17,6 +17,7 @@ import (
 	sdkinterfaces "github.com/Liapoldus/plugin-sdk/domain/interfaces"
 	sdkmodels "github.com/Liapoldus/plugin-sdk/domain/models"
 	sdkinfra "github.com/Liapoldus/plugin-sdk/infrastructure"
+	sdkpresentation "github.com/Liapoldus/plugin-sdk/presentation"
 )
 
 type source struct {
@@ -68,6 +69,7 @@ func main() {
 	}
 	handler, lifecycle, _, err := restplugin.NewHandler(active, restplugin.LifecycleOptions{
 		Source: configurationSource, Broker: secretBroker, Identity: identity, LogOutput: io.Discard,
+		AdminSurface: testAdminSurface{}, AdminActions: testAdminActions{},
 	})
 	if err != nil {
 		panic(err)
@@ -94,4 +96,16 @@ func main() {
 		"ready":          lifecycle.Readiness().Ready && lifecycle.Readiness().Generation == document.Generation,
 	})
 	fmt.Println(string(output))
+}
+
+type testAdminSurface struct{}
+
+func (testAdminSurface) AdminSurface(context.Context) ([]byte, error) {
+	return []byte(`{"version":1}`), nil
+}
+
+type testAdminActions struct{}
+
+func (testAdminActions) HandleAdminAction(context.Context, sdkpresentation.AdminActionInput) (sdkpresentation.AdminActionResponse, error) {
+	return sdkpresentation.AdminActionResponse{StatusCode: 200, Body: []byte(`{"ok":true}`)}, nil
 }

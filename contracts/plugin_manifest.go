@@ -24,6 +24,10 @@ func SettingsSchema() ([]byte, error) {
 }
 
 func ValidateSettings(contents []byte) error {
+	limits, err := Limits()
+	if err != nil || len(contents) > limits.SettingsMaxBytes {
+		return ErrInvalidPluginContract
+	}
 	settingsSchemaOnce.Do(func() {
 		encoded, err := SettingsSchema()
 		if err != nil {

@@ -6,7 +6,9 @@ Core хранит точные JSON-байты настроек и уведом�
 [`settings.schema.json`](contracts/v1/settings.schema.json), строит candidate
 repository и подтверждает поколение только после успешного переключения.
 `pluginprotocol` используется исключительно для прямых вызовов других плагинов
-к `forms.submit`, `forms.list`, `forms.delete` и `admin.surface.get`.
+к `forms.submit`, `forms.list` и `forms.delete`. Admin Surface и его JSON
+действия обслуживает Plugin SDK REST по mTLS; `admin.surface.get` не является
+peer capability.
 
 Поддерживаются SQLite, PostgreSQL и MySQL/MariaDB. `memory` оставлен для
 детерминированных локальных тестов и не сохраняет записи. Product submissions
@@ -37,6 +39,8 @@ npm test
 `tests/integration/sdk-reload.test.ts` проверяет REST Reload → exact pull →
 candidate grant → ACK в одном процессе. `child-process-sdk.test.ts` запускает
 настоящий forms-db binary с mTLS, scoped DSN grant и generic peer submit,
-затем рестартует его и проверяет сохранность SQLite записи. Это пока
-contract-compatible Core fixture, а не полный тест с production Core.
+затем рестартует его и проверяет сохранность SQLite записи через Core fixture.
+Полный сквозной сценарий с production Core, Server и forms-db находится в
+`core/tests/fixtures/manual-core-server` и проверяется
+`core/tests/integration/manual-core-server.test.ts`.
 Состояние остальных задач — в [`TODO.md`](TODO.md).

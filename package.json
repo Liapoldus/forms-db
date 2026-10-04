@@ -2,7 +2,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "vitest run tests/contracts/admin-surface.test.ts tests/contracts/delete.test.ts tests/contracts/list.test.ts tests/contracts/settings.test.ts tests/integration && node --test tests/contracts/cursor-secret-grants.test.ts"
+    "test": "vitest run tests/contracts/admin-surface.test.ts tests/contracts/cursor-runtime.test.ts tests/contracts/delete.test.ts tests/contracts/list.test.ts tests/contracts/request-decoding.test.ts tests/contracts/runtime-limits.test.ts tests/contracts/settings.test.ts tests/contracts/strict-settings.test.ts tests/contracts/submit.test.ts tests/integration && node --test tests/contracts/cursor-secret-grants.test.ts"
   },
   "devDependencies": {
     "ajv": "^8.20.0",

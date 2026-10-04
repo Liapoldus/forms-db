@@ -5,8 +5,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
+	"strings"
 	"time"
 
+	productcontracts "github.com/Liapoldus/forms-db/contracts"
 	"github.com/Liapoldus/forms-db/internal/application"
 	"github.com/Liapoldus/forms-db/internal/domain/interfaces"
 	"github.com/Liapoldus/forms-db/internal/domain/models"
@@ -15,7 +18,8 @@ import (
 	"github.com/Liapoldus/forms-db/internal/infrastructure/security"
 	"github.com/Liapoldus/forms-db/internal/presentation/restplugin"
 	sdkmodels "github.com/Liapoldus/plugin-sdk/domain/models"
-	"github.com/Liapoldus/pluginprotocol/presentation/peer"
+	sdkpresentation "github.com/Liapoldus/plugin-sdk/presentation"
+	"github.com/Liapoldus/pluginprotocol/v2/presentation/peer"
 )
 
 // SecretProvider obtains one scoped cursor key per call; the SDK owns the
@@ -25,26 +29,35 @@ type SecretProvider interface {
 }
 
 type Handler struct {
+	peer.Handler
 	active  *restplugin.Adapter
 	secrets SecretProvider
 }
 
-func New(active *restplugin.Adapter, secrets SecretProvider, authorizer peer.Authorizer) (peer.Handler, error) {
+func New(active *restplugin.Adapter, secrets SecretProvider, authorizer peer.Authorizer) (*Handler, error) {
 	if active == nil {
 		return nil, restplugin.ErrStorageUnavailable
 	}
 	handler := &Handler{active: active, secrets: secrets}
-	return peer.NewRegistry().WithAuthorizer(authorizer).
+	registered, err := peer.NewRegistry().WithAuthorizer(authorizer).
 		RegisterCall("forms.submit", handler.submit).
 		RegisterCall("forms.list", handler.list).
 		RegisterCall("forms.delete", handler.delete).
-		RegisterCall("admin.surface.get", handler.adminSurface).
 		Build()
+	if err != nil {
+		return nil, err
+	}
+	handler.Handler = registered
+	return handler, nil
 }
 
 func (handler *Handler) submit(ctx context.Context, call peer.Call) (peer.Result, error) {
 	payload, err := requestPayload(call.Payload)
 	if err != nil {
+		return httpJSON(422, map[string]any{"code": "validation_failed"}), nil
+	}
+	limits, err := productcontracts.Limits()
+	if err != nil || len(payload) > limits.SubmissionRequestMaxBytes {
 		return httpJSON(422, map[string]any{"code": "validation_failed"}), nil
 	}
 	var input struct {
@@ -201,20 +214,50 @@ func (handler *Handler) delete(ctx context.Context, call peer.Call) (peer.Result
 	return result, err
 }
 
-func (handler *Handler) adminSurface(context.Context, peer.Call) (peer.Result, error) {
-	payload, err := contracts.AdminSurface()
-	if err != nil {
-		return peer.Result{}, peer.ErrInternal
+func (handler *Handler) AdminSurface(context.Context) ([]byte, error) {
+	return contracts.AdminSurface()
+}
+
+// HandleAdminAction adapts the product-owned query and delete operations to the
+// generic Plugin SDK management action transport. The SDK owns REST/mTLS and
+// invocation validation; forms-db owns the page/action mapping and payloads.
+func (handler *Handler) HandleAdminAction(ctx context.Context, input sdkpresentation.AdminActionInput) (sdkpresentation.AdminActionResponse, error) {
+	if input.Invocation.PageID != "submissions" {
+		return sdkpresentation.AdminActionResponse{StatusCode: 404, Body: []byte(`{"code":"not_found"}`)}, nil
 	}
-	return peer.Result{Payload: payload}, nil
+	var result peer.Result
+	var err error
+	switch input.Invocation.ActionID {
+	case "query":
+		result, err = handler.list(ctx, peer.Call{Payload: input.Body})
+	case "delete":
+		result, err = handler.delete(ctx, peer.Call{Payload: input.Body})
+	default:
+		return sdkpresentation.AdminActionResponse{StatusCode: 404, Body: []byte(`{"code":"not_found"}`)}, nil
+	}
+	if err != nil {
+		return sdkpresentation.AdminActionResponse{}, peer.ErrInternal
+	}
+	var response struct {
+		Status int    `json:"status"`
+		Body   string `json:"body"`
+	}
+	if json.Unmarshal(result.Payload, &response) != nil || response.Status == 0 || !json.Valid([]byte(response.Body)) {
+		return sdkpresentation.AdminActionResponse{}, peer.ErrInternal
+	}
+	return sdkpresentation.AdminActionResponse{StatusCode: response.Status, Body: []byte(response.Body)}, nil
 }
 
 func requestPayload(payload []byte) ([]byte, error) {
+	// HTTP context is transport metadata owned by the caller. Preserve opaque
+	// context fields such as allow-listed cookies while extracting only Body;
+	// product decoders must never interpret or persist those values.
 	var envelope struct {
 		Method     string            `json:"method"`
 		Path       string            `json:"path"`
 		Query      string            `json:"query"`
 		Headers    map[string]string `json:"headers"`
+		Cookies    json.RawMessage   `json:"cookies"`
 		Body       []byte            `json:"body"`
 		RequestID  string            `json:"requestId"`
 		RemoteAddr string            `json:"remoteAddr"`
@@ -225,14 +268,105 @@ func requestPayload(payload []byte) ([]byte, error) {
 	return payload, nil
 }
 
+var _ peer.Handler = (*Handler)(nil)
+var _ sdkpresentation.AdminSurfaceProvider = (*Handler)(nil)
+var _ sdkpresentation.AdminActionHandler = (*Handler)(nil)
+
 func decodeObject(payload []byte, target any) error {
 	trimmed := bytes.TrimSpace(payload)
 	if len(trimmed) == 0 || trimmed[0] != '{' {
 		return peer.ErrInvalidRequest
 	}
+	if err := rejectDuplicateKeys(trimmed); err != nil {
+		return peer.ErrInvalidRequest
+	}
 	decoder := json.NewDecoder(bytes.NewReader(trimmed))
 	decoder.DisallowUnknownFields()
-	return decoder.Decode(target)
+	if err := decoder.Decode(target); err != nil {
+		return peer.ErrInvalidRequest
+	}
+	var trailing any
+	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
+		return peer.ErrInvalidRequest
+	}
+	return nil
+}
+
+func rejectDuplicateKeys(document []byte) error {
+	decoder := json.NewDecoder(bytes.NewReader(document))
+	first, err := decoder.Token()
+	if err != nil {
+		return err
+	}
+	if err := scanJSONValue(decoder, first, true); err != nil {
+		return err
+	}
+	if _, err := decoder.Token(); !errors.Is(err, io.EOF) {
+		return peer.ErrInvalidRequest
+	}
+	return nil
+}
+
+func scanJSONValue(decoder *json.Decoder, token json.Token, root bool) error {
+	delimiter, ok := token.(json.Delim)
+	if !ok {
+		return nil
+	}
+	switch delimiter {
+	case '{':
+		keys := make(map[string]struct{})
+		rootKeys := make(map[string]string)
+		for decoder.More() {
+			keyToken, err := decoder.Token()
+			if err != nil {
+				return err
+			}
+			key, ok := keyToken.(string)
+			if !ok {
+				return peer.ErrInvalidRequest
+			}
+			if _, exists := keys[key]; exists {
+				return peer.ErrInvalidRequest
+			}
+			keys[key] = struct{}{}
+			if root {
+				for existing := range rootKeys {
+					if strings.EqualFold(existing, key) {
+						return peer.ErrInvalidRequest
+					}
+				}
+				rootKeys[key] = key
+			}
+			value, err := decoder.Token()
+			if err != nil {
+				return err
+			}
+			if err := scanJSONValue(decoder, value, false); err != nil {
+				return err
+			}
+		}
+		closing, err := decoder.Token()
+		if err != nil || closing != json.Delim('}') {
+			return peer.ErrInvalidRequest
+		}
+	case '[':
+		for decoder.More() {
+			value, err := decoder.Token()
+			if err != nil {
+				return err
+			}
+			if err := scanJSONValue(decoder, value, false); err != nil {
+				return err
+			}
+		}
+		closing, err := decoder.Token()
+		if err != nil || closing != json.Delim(']') {
+			return peer.ErrInvalidRequest
+		}
+	default:
+		return peer.ErrInvalidRequest
+	}
+	return nil
 }
 
 func httpJSON(status int, value any) peer.Result {

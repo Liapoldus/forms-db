@@ -7,8 +7,7 @@
   "capabilities": [
     { "name": "forms.submit", "mode": "call" },
     { "name": "forms.list", "mode": "call" },
-    { "name": "forms.delete", "mode": "call" },
-    { "name": "admin.surface.get", "mode": "call" }
+    { "name": "forms.delete", "mode": "call" }
   ],
   "adminSurface": "contracts/v1/admin-surface.json"
 }

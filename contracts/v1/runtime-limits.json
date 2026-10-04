@@ -1,0 +1,18 @@
+{
+  "$id": "https://github.com/Liapoldus/forms-db/contracts/v1/runtime-limits.json",
+  "version": 1,
+  "settingsMaxBytes": 262144,
+  "schemaMaxDepth": 32,
+  "fieldsPerFormMax": 128,
+  "submissionRequestMaxBytes": 1048576,
+  "databaseTimeoutMilliseconds": 5000,
+  "databaseConcurrentOperationsMax": 64,
+  "sqlitePragmaQueryParameter": "_pragma",
+  "sqliteBusyTimeoutPragma": "busy_timeout",
+  "pageSizeMaximum": 100,
+  "cursorMaximumBytes": 4096,
+  "limitsSources": {
+    "pageSizeMaximum": ["contracts/v1/list-request.schema.json", "internal/infrastructure/security/contracts/cursor.json"],
+    "cursorMaximumBytes": ["contracts/v1/list-request.schema.json", "internal/infrastructure/security/contracts/cursor.json"]
+  }
+}

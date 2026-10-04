@@ -1,5 +1,40 @@
 # TODO — forms-db v1
 
+## Повторная проверка — 2026-10-04
+
+Текущий worktree прошёл `npm test -- --run` (20 файлов passed / 1 skipped,
+33 теста passed / 3 SQL-dependent skipped), Node cursor tests (2/2),
+`GOWORK=off go test ./...`, `go build ./...`, `go vet ./...` и
+`git diff --check`. SQL-backed production Core→Server→forms-db E2E отдельно
+прошёл 3/3 на одноразовых PostgreSQL 16, MySQL 8.0 и MariaDB 11.4. Новый
+`sql-reload-concurrency` child process прошёл `go run -race` на macOS и в
+Linux/arm64 Go 1.26 container. Владелец утвердил для v1 доступ `platform-admin`
+ко всему forms-db instance; per-site allow-list/tenant policy не реализовывать.
+Открытыми остаются hosted CI и docs pins. Linux runtime gate v1 прошёл в
+OrbStack Ubuntu guest; отдельный bare-metal host не требуется.
+
+Дополнение 2026-10-04: unit-test name для проверки SQL settings validation
+переименован так, чтобы не смешивать Plugin SDK `Reload` lifecycle с удалённым
+protocol RPC `ConfigApply`. Targeted `go test ./tests/unit -run
+^TestConfigurationValidationAcceptsSQLAdaptersAndValidatesTablePrefix$` прошёл.
+В cursor contract уточнено, что logical key для scoped grants управляется Core,
+а ключ не входит в plugin settings; `cursor-runtime.test.ts` прошёл.
+Те же `cursor-runtime.test.ts` и SQL configuration unit test прошли в OrbStack
+Ubuntu 24.04.5 ARM64 (1/1 и 1/1).
+
+Linux-проверка 2026-10-04: в Ubuntu 24.04.5 ARM64 VM под OrbStack прошли
+TypeScript suite (20 файлов, 33 теста; один SQL-файл и три SQL-теста пропущены
+без DSN), Node cursor tests (2/2), `go test ./...`, `go build ./...` и
+`go vet ./...`. Отдельно на Linux ARM64 с Docker прошли forms-db SQL
+child-process lifecycle tests для PostgreSQL 16, MySQL 8.4 и MariaDB 11.4
+(3/3) с Core-compatible mTLS fixture. Это не production Core→Server→forms-db
+SQL walkthrough: он проверен на macOS, а Linux VM полный сквозной walkthrough
+прошёл на memory backend. Затем тот же production Core→Server→forms-db fixture
+пройден в Linux VM на PostgreSQL 16, MySQL 8.0 и MariaDB 11.4 (3/3), включая
+concurrency, candidate refusal/rollback, outage/recovery и restart persistence.
+Hosted CI и published docs pins остаются открытыми. Per-site isolation явно
+исключена из v1 решением владельца от 2026-10-04.
+
 ## Документация
 
 - [x] Forms-db-owned Markdown/example перенесены в `docs/site/`; общие Core
@@ -7,17 +42,48 @@
 - [ ] После изменения owner docs обновить pin в
   `liapoldus.github.io/docs-sources.json` и проверить единый сайт.
 
-## Проверенное состояние на 2026-09-30
+## Проверенное состояние на 2026-10-02
 
-Рабочее дерево содержит незакоммиченный переход на Plugin SDK: вручную
-запускаемый binary, SDK REST `Reload`/exact pull/ACK, plugin-owned settings
-schema, generic peer handlers и новые TypeScript integration fixtures.
-`GOWORK=off go build ./...`, `go test ./...`, `go vet ./...` и `npm test`
-прошли локально после добавления child-process fixture (10 Vitest файлов,
-18 тестов и 2 Node contract tests). Новая fixture запускает
-настоящий binary: mTLS Reload→exact pull→DSN grant→ACK, peer submit и
-SQLite persistence после рестарта. Это ещё не production Core→SDK→forms-db
-E2E; forms-db v1 пока не готов.
+Дополнение 2026-10-03: `npm test` прошёл (18 Vitest files / 31 tests;
+один файл и три теста пропущены; отдельные Node cursor-grant tests 2/2),
+`go test ./...`, `go build ./...` и `go vet ./...` прошли. Сквозной
+Core→Server→forms-db отказ candidate и rollback прошёл на PostgreSQL 16,
+MySQL 8.0 и MariaDB 11.4 (3/3).
+
+Повторный текущий прогон `npm test -- --run` прошёл: 14 файлов / 25 тестов,
+один файл skipped и 3 SQL cases skipped без DSN; отдельные Node cursor-grant
+тесты прошли 2/2. SQL-backed disposable-container и production Core E2E ниже
+ссылаются на отдельные прогоны с явно заданными DSN, это не следует трактовать
+как покрытие обычного `npm test`.
+
+`npm test` прошёл (14 Vitest files passed / 1 skipped; 25 tests passed / 3
+SQL-backed cases skipped без DB DSN; плюс 2 Node cursor tests). `GOWORK=off go
+test ./...`, `go build ./...`, `go vet ./...`, `git diff --check` и targeted
+`gofmt` check прошли. При явных
+runtime/admin DSN SQL child-process matrix отдельно прошла 3/3,
+`GOWORK=off go test ./...`, `go build ./...`, `go vet ./...` и `git diff
+--check` прошли. Дополнительно PostgreSQL 16, MySQL 8.0 и MariaDB 11.4
+repository contract tests прошли против отдельных disposable containers; все
+три DB repository contract tests реально исполнялись, не пропускались. Отдельно
+real forms-db child-process lifecycle прошёл на PostgreSQL 16, MySQL 8.0 и
+MariaDB 11.4: SDK REST/mTLS Reload, exact pull, scoped DSN grant, CRUD и restart
+persistence. Child-process проверяет candidate SQLite open failure,
+invalid-schema refusal, отказ SQL connection candidate на PostgreSQL/MySQL/
+MariaDB без потери active данных и отказ trusted-CA caller с неверной URI
+identity без сохранения payload. Эти низкоуровневые SQL process tests используют
+mTLS Core fixture. Candidate DDL failure также прошёл на PostgreSQL 16, MySQL
+8.0 и MariaDB 11.4: временная ограниченная DB identity успешно подключается,
+но не может создавать таблицы; Reload отклоняется, active endpoint продолжает
+отдавать прежние данные, временные identities удаляются после теста.
+Теперь отдельный production Core→Server→forms-db E2E также проходит: Core
+доставляет settings через SDK REST, а настоящий Server направляет HTTP
+`forms.submit` напрямую в настоящий forms-db по разрешённому pluginprotocol
+mTLS-вызову. Production Core→Server→forms-db SQL E2E прошёл на PostgreSQL 16,
+MySQL 8.0 и MariaDB 11.4; последний локальный прогон прошёл 3/3 и дополнительно
+проверил planned-downtime замену Core/plugin identities и всех trust roots:
+новый CA сходится, старый отклоняется. Все три DSN включены в Core
+cross-repository CI. Linux runtime, hosted CI и release/version gate остаются
+открыты. Production readiness пока не заявляется.
 
 Этот файл содержит только задачи forms-db plugin. Единая граница версии и
 межрепозиторный план: [`tasks/README.md`](../../tasks/README.md) и единый
@@ -65,14 +131,17 @@ storage semantics, errors и vectors принадлежат этому
 
 - [x] Перенести `cmd/forms-db` на Plugin SDK registration/bootstrap, health,
   readiness, `Reload`, exact config pull, digest ACK, metrics и structured logs.
-- [ ] Добавить реальные per-replica mTLS listener/client identities и
-  fail-closed verification. Не добавлять plaintext/bearer fallback.
+- [x] Добавить реальные per-replica mTLS listener/client identities и
+  fail-closed verification. Child-process SDK suite проверяет anonymous,
+  wrong-identity, revoked и недоверенные certificates; plaintext/bearer
+  fallback отсутствует.
 - [x] Перенести ConfigSchema/ConfigApply settings parsing/application с
   `pluginprotocol` в SDK plugin-owned schema/applier hooks; migrate runtime,
   tests, fixtures, generated references и go.work imports как единый breaking
   slice.
-- [ ] Удалить gRPC Bootstrap/Manifest/ConfigSchema/ConfigApply/Shutdown service,
-  code, assets и lifecycle tests после проверки отсутствия всех consumers.
+- [x] Удалить legacy gRPC lifecycle service, assets и tests после перехода
+  consumers на Plugin SDK REST; `pluginprotocol` оставлен только для generic
+  peer communication.
 - [x] Прекратить чтение product config из env/argv/config files. При недоступном
   Core/grant не применять фиктивные default DB credentials.
 - [x] Обновить admin-surface contract и tests: удалить control-RPC config page;
@@ -80,73 +149,281 @@ storage semantics, errors и vectors принадлежат этому
 
 ## P1 — config/repository lifecycle
 
-- [ ] Строго проверить settings JSON/JSON Schema, unknown keys, size/depth,
-  duplicate keys и secret-ref forms на границе Plugin SDK без потери raw bytes.
-- [ ] Новый generation сначала создаёт candidate repository и компилирует все
+- [x] Строгий settings decoder на runtime boundary: принимает только один UTF-8
+  JSON object, отклоняет duplicate members на любой глубине и trailing JSON;
+  unknown top-level keys отклоняются typed decoder-ом. Проверено настоящим Go
+  settings runtime через `tests/contracts/strict-settings.test.ts`.
+- [x] Settings schema выполняется перед typed runtime decode при SDK Reload;
+  runtime дополнительно отвергает неоднозначный JSON, который стандартный
+  `encoding/json` иначе принимает. Обязательные поля и schema constraints
+  проверяются в `tests/contracts/settings.test.ts`, runtime decode — в
+  `tests/contracts/strict-settings.test.ts`.
+- [x] DSN/cursor references остаются opaque для forms-db: plugin не разбирает
+  scheme/path и проверяет их пригодность только через scoped SDK grant. Фактическая
+  Core redemption проверена отдельными lifecycle tests; продуктовый settings
+  contract не дублирует Core secret-source format.
+- [x] Новый generation сначала создаёт candidate repository и компилирует все
   form schemas; только при полном успехе атомарно заменяет активную пару
-  repository+schema+generation.
-- [ ] На invalid DSN/grant/schema/migration/open failure сохранить старый
-  repository и принимать запросы прежнего active generation до согласованного
-  fencing поведения.
-- [ ] Проверить allow-list SQLite, MySQL/MariaDB и PostgreSQL; закрепить
+  repository+schema+generation. `tests/integration/sdk-applier.test.ts`
+  проверяет успешную замену, refusal из candidate builder и сохранение прежней
+  записи через active service после refusal.
+- [x] Реальный forms-db process отклоняет candidate после успешного scoped DSN
+  redemption, когда SQLite не может открыть candidate path; прежняя запись всё
+  ещё доступна через активный peer endpoint. Evidence:
+  `tests/integration/child-process-sdk.test.ts` и fixture `child-process`.
+- [x] Child-process conformance доказывает, что invalid product schema и
+  недоступный SQL endpoint в candidate settings не заменяют serving generation;
+  сценарии выполнены для SQLite, PostgreSQL, MySQL и MariaDB с Plugin SDK mTLS
+  fixture. Отдельный production Core E2E доказывает persistence/reconnect на
+  всех трёх SQL backend.
+- [x] Отсутствующий scoped DSN grant отклоняет candidate без изменения active
+  generation и сохранения предыдущей записи; проверка выполняется в реальном
+  forms-db child process под SDK mTLS fixture на SQLite, PostgreSQL, MySQL и
+  MariaDB.
+- [x] SQLite read-only candidate проходит соединение, но отказывает на DDL;
+  живой forms-db process не подтверждает Reload и продолжает обслуживать active
+  данные. Предусловия read-only/Ping/DDL failure проверяются в fixture.
+- [x] Candidate migration/DDL failure сохраняет active generation на SQLite,
+  PostgreSQL, MySQL и MariaDB. SQL process cases используют временного DB user с
+  правом соединения, но без `CREATE`; после отказа candidate пользователь и его
+  grants удаляются.
+- [x] Проверить outage активной БД через production Core→SDK→Server→forms-db:
+  во время недоступности SQL возвращается только retryable `storage_unavailable`
+  без DSN/driver details, после восстановления сети сохранённая запись снова
+  доступна. Реальный E2E прошёл на PostgreSQL 16, MySQL 8.0 и MariaDB 11.4.
+- [x] Проверить allow-list SQLite, MySQL/MariaDB и PostgreSQL; закрепить
   transaction/connection pool defaults, schema/table prefix constraints,
-  migration ownership, persistence, backup/restore и startup recovery для
-  каждого backend. Другие drivers не поддерживать в v1. PostgreSQL repository
-  contract прошёл на временном PostgreSQL 17 (2026-09-30); полный пакет тестов
-  пока не собирается из-за старых lifecycle imports, а остальные пункты
-  данного gate остаются открытыми.
-- [ ] Установить limits для schema size/depth, form value/body size, field count,
-  batch/read limits, filters, cursor length, database timeout/concurrency и
-  admin page results; contract + executable boundary tests обязательны.
-- [ ] Разделить storage errors: отсутствующая запись = `not_found`, transient
-  outage = retryable service error, invalid data = validation error; не выдавать
-  SQL driver message, query, DSN или path наружу.
+  migration ownership и persistence для каждого backend. Другие drivers не
+  поддерживать в v1. Repository contract tests прошли на disposable PostgreSQL
+  16, MySQL 8.0 и MariaDB 11.4; срез 2026-10-02 дополнительно закрывает и
+  повторно открывает repository и проверяет строки и scoped delete после reopen.
+  Plugin-process restart и отказ DB в реальном Core→SDK→Server→forms-db
+  lifecycle закрыты сквозным SQL E2E ниже. Core backup/restore относится к
+  Core CLI acceptance и проверяется отдельно.
+- [x] Зафиксировать и исполнять v1 resource limits в
+  `contracts/v1/runtime-limits.json`: settings 256 KiB, schema depth 32,
+  до 128 объявленных fields на form, submit request 1 MiB, page 100, cursor
+  4 KiB, SQL timeout 5 s и до 64 одновременно ожидающих/выполняющихся SQL
+  операций на instance. TypeScript запускает реальный Go runtime fixture на
+  точной границе и на один байт/элемент выше для settings, schema depth,
+  properties и submit body. SQL timeout проверяется отдельно с удерживаемой
+  SQLite lock; concurrency cap реализован semaphore-ом и лимитом SQL pool.
+  Остальные product-specific batch/filter/admin-result limits остаются
+  ограничены соответствующими request contracts и не расширяются в этом slice.
+- [x] Разделить публичные ошибки: отсутствующая запись = non-retryable
+  `not_found` (`404`), invalid request/configured-schema data = `validation_failed`
+  (`422`), storage outage = retryable `storage_unavailable` (`503`). Проверено
+  delete Admin Action child-process, настоящим peer-handler через submit negative
+  vectors и production Core→Server→forms-db SQL outage/recovery E2E; сообщения
+  SQL driver, query, DSN и path наружу не возвращаются.
 
 ## P2 — capabilities, grants и Admin Surface
 
-- [ ] Проверить generic capability registration и route/action mapping без
-  protocol-defined `forms.*` messages; объявить только реально реализованные
-  forms methods в plugin-owned Manifest/schema.
-- [ ] Реализовать caller→target allow/deny policy для Server → forms-db на
-  стороне вызывающего plugin и применять её через generic `pluginprotocol`
-  authorizer. Core не имеет peer-policy API в v1 и не проксирует payload;
-  централизованное управление peer policy отложено до v2.
-- [ ] Cursor grant: связать grant с replica/caller, invocation ID, site/schema/
-  filter scope, bounded expiry и one-use. Проверить multi-replica continuation,
-  invalid signature/version, key rotation и grant failure; не хранить signing
-  keys в plugin DB.
-- [ ] DSN grant: привязать к instance+config generation+purpose; выдать только
-  до открытия candidate repository, не переиспользовать после нового
-  generation, очищать in-memory secret при замене/закрытии.
-- [ ] Admin actions: list, delete, pagination и operation/status; явная
-  idempotency, page permission, delete confirmation, audit/redaction принадлежат
-  соответствующим owners. Не добавлять отдельный plugin admin listener.
-- [ ] Провести негативные проверки: cross-instance read/delete, wrong capability,
-  revoked/stale grant, malicious filters/schema, oversized input, timing races,
-  cursor tampering/replay и storage outage.
+- [x] Проверить generic capability registration и route/action mapping без
+  protocol-defined `forms.*` messages. Plugin-owned manifest перечисляет ровно
+  реализованные `forms.submit`, `forms.list`, `forms.delete`; generic peer
+  registry регистрирует те же методы, а Admin Surface связывает query/delete
+  только с объявленными capabilities. Evidence: `tests/contracts/settings.test.ts`,
+  `tests/contracts/admin-surface.test.ts`, request vectors и child-process
+  submit/list/delete сценарии.
+- [x] Применять caller identity allow-list на стороне forms-db через generic
+  `pluginprotocol` authorizer. Настройка v1 задаётся оператором через
+  `--peer-allowed-caller`; child-process suite доказывает успех разрешённого
+  Server caller и отказ trusted-CA identity с другой URI до обработки payload.
+  Core не имеет peer-policy API и не проксирует payload; централизованное
+  управление peer policy отложено до v2.
+- [x] Проверить multi-replica cursor continuation: cursor от первой отдельной
+  forms-db process принимается второй process с тем же logical grant key и общей
+  SQLite базой; исполняется в `tests/fixtures/multi-replica-cursor`.
+- [x] Проверить cursor token runtime: query scope, expiry, key rotation,
+  authenticated bytes и tampered version через
+  `tests/contracts/cursor-runtime.test.ts` с настоящим Go signer.
+- [x] Сквозная per-call выдача/redeem cursor grant проверена через
+  Core→Server→forms.list/Admin Surface pagination: несколько cursor pages
+  запрашиваются отдельно, а каждый page request получает cursor signer через
+  SDK secret provider. Core audit содержит одно событие на запрос. Evidence:
+  `core/tests/integration/manual-core-server.test.ts` и
+  `core/tests/integration/manual-core-server-sql.test.ts` (PostgreSQL 16,
+  MySQL 8.0, MariaDB 11.4, 3/3).
+- [x] Сквозной stale/revoked identity отказ для cursor grant на
+  Core→Server→forms.list: active generation 3, plugin остаётся на generation 2
+  при недоступном Reload endpoint; затем Core CRL отзывает plugin client
+  certificate, и реальный scoped-grant request из `forms.list` не проходит
+  mTLS. Server возвращает только `503 storage_unavailable`, после возврата
+  trust policy Core/plugin сходятся и `forms.list` возвращает 200. Проверено
+  `core/tests/integration/manual-core-server.test.ts` (1/1) и
+  `core/tests/integration/manual-core-server-sql.test.ts` (3/3 на PostgreSQL 16,
+  MySQL 8.0, MariaDB 11.4). Это отказ отозванной workload identity на grant
+  boundary; отдельного API отзыва конкретного уже выданного handle в v1 нет.
+- [x] Проверить отказ неподдерживаемой capability для mTLS-аутентифицированного
+  разрешённого caller-а: `forms.unknown` даёт `ErrMethodNotFound`, marker
+  payload не сохраняется, последующий authorized list возвращает пустой набор.
+  Проверено реальным child process в
+  `tests/integration/child-process-sdk.test.ts`.
+- [x] Доверенная по CA, но не allow-listed plugin identity отвергается до
+  обработки `forms.list` и `forms.delete`, как и `forms.submit`; проверяется
+  настоящий child process и generic peer authorizer в
+  `tests/integration/child-process-sdk.test.ts`.
+- [x] Проверить реальную SQL-backed конкуренцию между invocation и config
+  replacement: SQLite child process блокирует `Adapter.Use`, применяет candidate
+  через `Adapter.Apply`, подтверждает, что Reload ждёт старый SQL-вызов, прежний
+  repository закрывается только после него, данные прежнего поколения сохраняются,
+  а новые вызовы обслуживаются отдельной candidate-базой. Проверено
+  `tests/integration/sql-reload-concurrency.test.ts` и отдельно
+  `GOWORK=off GOTOOLCHAIN=go1.26.0 go run -race
+  ./tests/fixtures/sql-reload-concurrency`.
+- [x] Не добавлять tenant/site policy в v1: владелец выбрал общий
+  `platform-admin` доступ ко всему instance. `site` — фильтр данных, а не ACL;
+  Admin Surface `permissions` остаются независимой Controller-side политикой.
+- [x] Остальные перечисленные негативные пути уже имеют runtime evidence:
+  malformed schema/request отказ, лимит oversized submission, отказ
+  tampered cursor (`peer-list-cursor.test.ts`), storage outage/recovery и
+  stale/revoked replica grant в Core→Server→forms-db SQL walkthrough. Каждый
+  cursor page request получает новый scoped grant.
+- [x] SQL-подобное неподдерживаемое имя filter field отклоняется до repository
+  query с `422 validation_failed`; проверено generic peer handler-ом реального
+  fixture в `tests/integration/peer-list-cursor.test.ts`.
+- [x] Зафиксирована повторяемость валидного cursor: тот же scope в пределах
+  TTL повторяет read-only keyset query без погашения cursor; каждый вызов заново
+  получает scoped key grant. Fixture проверяет одинаковую страницу на
+  неизменном наборе через две replicas (`peer-list-cursor.test.ts`).
+- [x] Runtime исполняет replica vectors `old-cursor-after-key-rotation` и
+  `cursor-grant-unavailable-on-one-replica`: настоящий peer handler возвращает
+  соответственно `422` после смены ключа и `503` при отказе scoped grant;
+  TypeScript сравнивает фактические коды с `cursor-replica-vectors.json`.
+- [x] Параллельный ConfigApply не закрывает repository, пока выполняется
+  invocation, начатый на старом поколении; после завершения вызова candidate
+  атомарно становится обслуживающим. Доказано через настоящий
+  `restplugin.Adapter` в `tests/fixtures/reload-concurrency` и
+  `tests/integration/reload-concurrency.test.ts`; `go run -race` тоже прошёл.
+- [x] Актуальный Core→Server→forms-db ручной memory walkthrough повторно прошёл
+  в Linux/arm64 Go 1.26 container 2026-10-04; submit/list/Admin Surface, cursor
+  grant, restart/reconnect, revocation и redaction подтвердились.
+  generic Core grant tests уже покрывают replica, active generation, purpose,
+  one-use redemption и redaction. Child-process SDK fixture подтверждает
+  отдельный grant на каждый forms.list и отказ повторного redemption уже
+  потраченного handle по mTLS. Signing keys не хранятся в plugin DB.
+- [x] DSN grant lifecycle: Core связывает выдачу с replica, exact active
+  generation, configured reference и purpose и допускает одно redemption;
+  forms-db redeem-ит secret при подготовке candidate repository, вызывает
+  `Destroy`, очищает временный DSN и не сохраняет plaintext в active settings.
+  Отказ grant/connection/schema не меняет serving generation. Проверено
+  `core/tests/integration/plugin-secret-grants.test.ts`,
+  `tests/integration/child-process-sdk.test.ts` и SQL child-process cases.
+- [x] Реализовать product Admin Surface для list/pagination/delete без отдельного
+  plugin admin listener. Страница требует read+write permissions, delete имеет
+  подтверждение и row mapping; повторное удаление отсутствующей записи явно
+  возвращает non-retryable `not_found`. Runtime покрыт
+  `tests/integration/child-process-sdk.test.ts` и
+  `tests/integration/admin-surface-sdk.test.ts`; management authorization/audit
+  остаются ответственностью Core и Plugin SDK.
+- [x] Подтвердить end-to-end Core audit/redaction повторённых Admin Actions:
+  manual Core→Server→forms-db E2E дважды выполняет query и delete через Core,
+  проверяет результат каждого вызова, по одной audit-записи на каждый принятый
+  запрос и отсутствие email/record ID в Core logs, SQLite и audit fields. Core
+  audit остаётся единственным аудитом управления; forms-db его не дублирует.
+  Evidence: `core/tests/integration/manual-core-server.test.ts`.
+- [x] Проверить production Core mTLS secret grant после смены generation:
+  grant, выданный для generation 1, отклоняется после Reload generation 2 как
+  `grant_denied`; handle отсутствует в ответе, Core logs, SQLite и audit.
+  Production Core→Server→forms-db сценарий прошёл на PostgreSQL 16, MySQL 8.0
+  и MariaDB 11.4 (`core/tests/integration/manual-core-server-sql.test.ts`, 3/3).
+- [x] Закрепить семантику idempotency/retry для синхронных Admin Actions:
+  `Idempotency-Key` служит только корреляции/audit и не дедуплицирует вызовы;
+  каждый принятый повтор заново выполняет action и создаёт отдельную audit
+  запись. Повторный `forms.delete` возвращает `not_found`, а не сохранённый
+  первый ответ. Это не exactly-once; неизвестный результат не replay-ится
+  автоматически. Durable operations и artifact actions сохраняют отдельную
+  operation-idempotency семантику Core. Описание — в
+  `core/docs/site/core/api/operations.md`; поведение проверяется manual E2E.
+- [x] Отдельная повторная negative-matrix запись поглощена сводным пунктом выше;
+  не поддерживать дублирующий список сценариев.
 
 ## P3 — tests и release quality
 
-- [ ] Child-process SDK/mTLS conformance: startup, Reload/pull/ACK и operator
-  restart c SQLite persistence покрыты `child-process-sdk.test.ts`; добавить
-  invalid config с сохранением прежнего state, Core unavailable/recovery,
-  revoked identity и настоящий production Core.
-- [ ] Реальный SQL-backed integration: миграция, restart persistence, concurrent
-  submit/list/delete, rollback candidate и отказ DB. Memory adapter не заменяет
-  persistent acceptance.
-- [ ] Межрепозиторный Server → protocol → forms-db dispatch: разрешённый
+- [x] Строгий decoder для capability payload требует ровно один JSON object и
+  отклоняет дублирующиеся members, case-fold collision верхнего уровня и
+  trailing document как `validation_failed`. Contract-векторы исполняются
+  реальным forms-db peer handler в `tests/integration/peer-list-cursor.test.ts`.
+  Generic Server HTTP envelope может содержать opaque cookie context; forms-db
+  извлекает только `body`, не интерпретируя и не сохраняя context values.
+  Проверено child fixture с cookie marker в
+  `tests/integration/peer-dispatch.test.ts` и production Core→Server→forms-db
+  E2E в `core/tests/integration/manual-core-server.test.ts`; SQL-backed variant
+  также утверждает payload/cookie redaction на PostgreSQL, MySQL и MariaDB
+  (`core/tests/integration/manual-core-server-sql.test.ts`, 3/3).
+- [x] Child-process SDK/mTLS conformance: startup, Reload/pull/ACK, operator
+  restart и SQLite persistence покрыты `child-process-sdk.test.ts`; invalid
+  schema и недоступный candidate SQL connection не меняют active generation
+  на четырёх storage-вариантах. Отсутствующий scoped DSN grant также отказан
+  без изменения active generation на всех четырёх child-process backends.
+  SQLite read-only DDL failure и SQL DDL denial на PostgreSQL, MySQL и MariaDB
+  также сохраняют active generation.
+- [x] Дополнить production Core E2E rollback после отказа forms-db candidate.
+  `core/tests/integration/manual-core-server-sql.test.ts` 2026-10-03 прошёл на
+  PostgreSQL 16, MySQL 8.0 и MariaDB 11.4 (3/3): недоступный candidate
+  получает терминальный failed operation, прежний runtime продолжает принимать
+  submissions, после rollback восстанавливаются submit/list и точные settings
+  bytes. Исправлен typed-nil SQL repository при ошибке builder-а; регрессия
+  закреплена в `tests/integration/sdk-applier.test.ts`.
+- [x] SQL-backed child-process lifecycle на PostgreSQL, MySQL и MariaDB:
+  миграция, Reload/pull/scoped DSN grant, persistent CRUD и restart persistence.
+  Выполнено против disposable DB containers; настоящее production Core в этом
+  наборе заменяет mTLS test fixture.
+- [x] Проверить конкуренцию на реальных SQL repository: одновременные
+  submit/list, затем delete/list и финальную keyset-пагинацию без потерь и
+  повторов. Набор прошёл на PostgreSQL 16, MySQL 8.0 и MariaDB 11.4.
+- [x] Проверить cursor continuation между двумя независимыми forms-db adapters:
+  первая runtime выдаёт cursor, вторая runtime с тем же Core-owned logical key
+  продолжает страницу на общем repository; tampering по-прежнему отклоняется.
+  Это доказывает replica-independent token semantics, но не заменяет отдельный
+  process/mTLS/readiness/generation-fencing test ниже.
+- [x] Сквозная concurrency-проверка Core→SDK→Server→forms-db выполняет 24
+  параллельных submit и bounded cursor pagination на PostgreSQL 16, MySQL 8.0 и
+  MariaDB 11.4; тот же сценарий проверяет persistence, ручной restart,
+  reconnect, DB outage и recovery. `tests/integration/manual-core-server-sql.test.ts`
+  прошёл 3/3 и после добавления planned-downtime trust-root rotation.
+- [x] Дополнить production Core→SDK→Server→forms-db SQL путь проверкой
+  candidate-generation refusal/rollback при storage connection failure.
+  Сквозной production Core путь прошёл на PostgreSQL 16, MySQL 8.0 и MariaDB
+  11.4 2026-10-03. Отдельные child-process tests по-прежнему проверяют отказ
+  candidate на SQLite, PostgreSQL, MySQL и MariaDB, включая DDL denial.
+- [x] Межрепозиторный Server → protocol → forms-db dispatch: разрешённый
   HTTP→peer→SQL вызов проходит в child-process smoke с настоящими Server и
-  forms-db (2026-10-01); отдельный вызывающий с доверенным CA, но неверной
-  URI identity получает `unauthorized` до обработки submit. Ещё проверить
-  отказ peer mTLS при недоверенном CA и доказать, что production Core API не
-  видел user payload.
-- [ ] Два процесса forms-db проверяют cursor continuation и independent
-  readiness/generation fencing. Grants и records не утекли в logs/errors/metrics.
-- [ ] Проверить plugin-owned contracts/vectors против runtime, Test fixtures не
-  подменяют настоящий process и settings.
-- [ ] Пройти `go test ./...`, `go build ./...`, `go vet ./...`, TypeScript suite,
-  child-process security/integration, macOS/Linux build и совместную acceptance
-  с Core/SDK/Server. Не фиксировать исторический PASS как актуальный.
+  forms-db; forms-db child-process тест доказывает отказ trusted-CA identity с
+  неверной URI и отсутствие сохранённого submission payload.
+- [x] Child-process peer mTLS отвергает вызов с сертификатом от недоверенного
+  CA до обработки; после попытки проверяется отсутствие submission в storage.
+  Проверено `tests/integration/child-process-sdk.test.ts`.
+- [x] Production Core→Server→forms-db child-process walkthrough подтвердил,
+  что marker прямого `forms.submit` отсутствует в Core stdout/stderr, durable
+  SQLite/WAL и сохранённых audit-полях: `core/tests/integration/manual-core-server.test.ts`.
+- [x] Два отдельных forms-db процесса проходят Plugin SDK mTLS health/readiness,
+  разделяют SQLite storage и per-call logical cursor key; успешный cursor
+  continuation не требует sticky routing. Одна replica применяет generation 2,
+  вторая остаётся ready на generation 1; их runtime-schema ответы подтверждают
+  independent generation fencing. Исполняется в
+  `tests/integration/multi-replica-cursor.test.ts`.
+- [x] Child-process conformance проверяет, что маркеры submitted/unauthorized
+  records, DSN и secret references отсутствуют в stdout/stderr настоящего
+  процесса, ошибке отказа unauthorized peer и ответе Prometheus metrics
+  endpoint. Проверка ограничена этими lifecycle/request путями; при добавлении
+  новых error/logging paths их нужно включать в ту же redaction suite.
+- [x] Негативные `forms.delete` vectors исполняются настоящим peer handler:
+  missing `id`, пустой `site` и неизвестное поле дают `422 validation_failed`.
+  `peer-dispatch.test.ts` передаёт versioned vectors в реальную Go fixture и
+  проверяет runtime result.
+- [x] Runtime-conformance inventory versioned vectors закрыта: request JSON,
+  submit-negative и delete-negative vectors выполняются через настоящий
+  child-process plugin с загруженными settings/SDK lifecycle; Admin Surface
+  mapping vector проходит как SDK Admin Action; cursor/replica vectors
+  проверяются runtime-handler и двумя независимыми mTLS processes. Schema-only
+  проверки остаются отдельной проверкой формы контракта, не подменяя runtime.
+- [x] На 2026-10-04 повторно пройти `go test ./...`, `go build ./...`,
+  `go vet ./...`, TypeScript suite и child-process security/integration в
+  OrbStack Ubuntu guest; SQL E2E проверить на PostgreSQL, MySQL и MariaDB. Все
+  перечисленные проверки прошли; hosted CI остаётся открытым, а per-site policy
+  явно не входит в v1 по решению владельца.
 
 ## Не входит в v1
 

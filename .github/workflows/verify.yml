@@ -10,6 +10,55 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    env:
+      FORMS_DB_POSTGRES_DSN: postgres://formsdb:formsdb-test-password@127.0.0.1:5432/formsdb_test?sslmode=disable
+      FORMS_DB_MYSQL_DSN: formsdb:formsdb-test-password@tcp(127.0.0.1:3306)/formsdb_test?parseTime=true&tls=skip-verify
+      FORMS_DB_MARIADB_DSN: formsdb:formsdb-test-password@tcp(127.0.0.1:3307)/formsdb_test?parseTime=true
+      FORMS_DB_POSTGRES_ADMIN_DSN: postgres://formsdb:formsdb-test-password@127.0.0.1:5432/formsdb_test?sslmode=disable
+      FORMS_DB_MYSQL_ADMIN_DSN: root:formsdb-root-test-password@tcp(127.0.0.1:3306)/formsdb_test?parseTime=true&tls=skip-verify
+      FORMS_DB_MARIADB_ADMIN_DSN: root:mariadb-root-test-password@tcp(127.0.0.1:3307)/formsdb_test?parseTime=true
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: formsdb_test
+          POSTGRES_USER: formsdb
+          POSTGRES_PASSWORD: formsdb-test-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U formsdb -d formsdb_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_DATABASE: formsdb_test
+          MYSQL_USER: formsdb
+          MYSQL_PASSWORD: formsdb-test-password
+          MYSQL_ROOT_PASSWORD: formsdb-root-test-password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "mysqladmin ping --host=127.0.0.1 --user=formsdb --password=formsdb-test-password --silent"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+      mariadb:
+        image: mariadb:11.4
+        env:
+          MARIADB_DATABASE: formsdb_test
+          MARIADB_USER: formsdb
+          MARIADB_PASSWORD: formsdb-test-password
+          MARIADB_ROOT_PASSWORD: mariadb-root-test-password
+        ports:
+          - 3307:3306
+        options: >-
+          --health-cmd "healthcheck.sh --connect --innodb_initialized"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       # forms-db consumes pluginprotocol and the Plugin SDK through sibling
       # replace directives (../../pluginprotocol, ../../plugin-sdk), so the

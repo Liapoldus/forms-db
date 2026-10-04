@@ -11,6 +11,12 @@ describe('forms-db SDK configuration applier', () => {
       env: { ...process.env, GOWORK: 'off' },
       encoding: 'utf8',
     });
-    expect(JSON.parse(output)).toEqual({ accepted: true, preserved: true, secretWasScoped: true });
+    expect(JSON.parse(output)).toEqual({
+      accepted: true,
+      preserved: true,
+      buildFailurePreserved: true,
+      servesPriorState: true,
+      secretWasScoped: true,
+    });
   }, 30_000);
 });

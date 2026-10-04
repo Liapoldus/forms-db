@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"regexp"
 
+	productcontracts "github.com/Liapoldus/forms-db/contracts"
 	"github.com/santhosh-tekuri/jsonschema/v6"
 )
 
@@ -28,6 +29,10 @@ func (unavailableSchemaLoader) Load(string) (any, error) {
 }
 
 func compileSchemas(schemas map[string]json.RawMessage) (map[string]*jsonschema.Schema, int, error) {
+	limits, err := productcontracts.Limits()
+	if err != nil {
+		return nil, 0, errors.New("invalid resource limit contract")
+	}
 	var contract schemaValidationContract
 	if err := json.Unmarshal(schemaValidationContractJSON, &contract); err != nil {
 		return nil, 0, errors.New("invalid schema validation contract")
@@ -53,6 +58,9 @@ func compileSchemas(schemas map[string]json.RawMessage) (map[string]*jsonschema.
 		if err := json.Unmarshal(raw, &document); err != nil {
 			return nil, 0, errors.New("invalid registered JSON Schema")
 		}
+		if !schemaWithinResourceLimits(document, limits.SchemaMaxDepth, limits.FieldsPerFormMax) {
+			return nil, 0, errors.New("registered JSON Schema exceeds resource limits")
+		}
 		if schema, ok := document.(map[string]any); ok {
 			if draft, exists := schema["$schema"]; exists && draft != contract.Draft2020Schema {
 				return nil, 0, errors.New("registered schema must use JSON Schema Draft 2020-12")
@@ -72,6 +80,75 @@ func compileSchemas(schemas map[string]json.RawMessage) (map[string]*jsonschema.
 		compiled[name] = schema
 	}
 	return compiled, contract.MaxSubmissionProperties, nil
+}
+
+func schemaWithinResourceLimits(document any, maxDepth, maxFields int) bool {
+	fields := 0
+	var visitSchema func(any, int) bool
+	visitSchema = func(value any, depth int) bool {
+		if depth > maxDepth {
+			return false
+		}
+		node, ok := value.(map[string]any)
+		if !ok {
+			_, booleanSchema := value.(bool)
+			return booleanSchema
+		}
+		properties, exists := node["properties"]
+		if exists {
+			propertyMap, ok := properties.(map[string]any)
+			if !ok {
+				return false
+			}
+			fields += len(propertyMap)
+			if fields > maxFields {
+				return false
+			}
+			for _, child := range propertyMap {
+				if !visitSchema(child, depth+1) {
+					return false
+				}
+			}
+		}
+		for _, keyword := range []string{"$defs", "definitions", "patternProperties", "dependentSchemas"} {
+			children, exists := node[keyword]
+			if !exists {
+				continue
+			}
+			childMap, ok := children.(map[string]any)
+			if !ok {
+				return false
+			}
+			for _, child := range childMap {
+				if !visitSchema(child, depth+1) {
+					return false
+				}
+			}
+		}
+		for _, keyword := range []string{"items", "additionalItems", "additionalProperties", "unevaluatedItems", "unevaluatedProperties", "contains", "contentSchema", "propertyNames", "not", "if", "then", "else"} {
+			child, exists := node[keyword]
+			if exists && !visitSchema(child, depth+1) {
+				return false
+			}
+		}
+		for _, keyword := range []string{"allOf", "anyOf", "oneOf", "prefixItems"} {
+			children, exists := node[keyword]
+			if !exists {
+				continue
+			}
+			childSchemas, ok := children.([]any)
+			if !ok {
+				return false
+			}
+			for _, child := range childSchemas {
+				if !visitSchema(child, depth+1) {
+					return false
+				}
+			}
+		}
+		return true
+	}
+	return visitSchema(document, 1)
 }
 
 func (s Settings) ValidateSubmissionData(schemaName string, data any) error {

@@ -15,14 +15,16 @@ import (
 )
 
 type LifecycleOptions struct {
-	Source      sdkinterfaces.ConfigurationSource
-	Broker      sdkinterfaces.SecretBroker
-	Identity    sdkmodels.ReplicaIdentity
-	Credentials sdkinfra.CredentialsProvider
-	CorePeer    sdkmodels.PeerIdentity
-	Revocation  sdkinterfaces.RevocationSource
-	ErrorLog    *log.Logger
-	LogOutput   io.Writer
+	Source       sdkinterfaces.ConfigurationSource
+	Broker       sdkinterfaces.SecretBroker
+	Identity     sdkmodels.ReplicaIdentity
+	Credentials  sdkinfra.CredentialsProvider
+	CorePeer     sdkmodels.PeerIdentity
+	Revocation   sdkinterfaces.RevocationSource
+	ErrorLog     *log.Logger
+	LogOutput    io.Writer
+	AdminSurface sdkpresentation.AdminSurfaceProvider
+	AdminActions sdkpresentation.AdminActionHandler
 }
 
 type wallClock struct{}
@@ -84,6 +86,7 @@ func NewHandler(active *Adapter, options LifecycleOptions) (http.Handler, *sdkap
 		Contracts: presentationContracts(contract), Lifecycle: lifecycle,
 		Readiness:    sdkpresentation.WithoutContext(lifecycle.Readiness),
 		Registration: lifecycle, Metadata: active, Metrics: collector,
+		AdminSurface: options.AdminSurface, AdminActions: options.AdminActions,
 	})
 	if err != nil {
 		return nil, nil, nil, err
@@ -126,8 +129,12 @@ func presentationContracts(contract sdkinfra.HTTPContract) sdkpresentation.Contr
 		return sdkpresentation.Endpoint{Method: value.Method, Path: value.Path}
 	}
 	document := func(value sdkinfra.DocumentContract) sdkpresentation.DocumentContract {
-		return sdkpresentation.DocumentContract{MediaType: value.MediaType, MaximumBytes: value.MaximumBytes, Required: append([]string(nil), value.Required...)}
+		return sdkpresentation.DocumentContract{MediaType: value.MediaType, MaximumBytes: value.MaximumBytes,
+			Required: append([]string(nil), value.Required...), DigestAlgorithm: value.DigestAlgorithm}
 	}
+	artifact := contract.Plugin.ArtifactStream
+	admin := contract.Plugin.AdminAction
+	invocation := admin.InvocationContext
 	problems := make(map[string]sdkpresentation.Problem, len(contract.Problems))
 	for name, value := range contract.Problems {
 		problems[name] = sdkpresentation.Problem{Status: value.Status, Code: value.Code}
@@ -141,6 +148,8 @@ func presentationContracts(contract sdkinfra.HTTPContract) sdkpresentation.Contr
 		IdentityEndpoint: endpoint("identity"), ManifestEndpoint: endpoint("manifest"),
 		ConfigSchemaEndpoint: endpoint("configSchema"), HealthEndpoint: endpoint("health"),
 		ReadyEndpoint: endpoint("ready"), ReloadEndpoint: endpoint("reload"),
+		ArtifactStreamEndpoint: endpoint("artifactStream"),
+		AdminSurfaceEndpoint:   endpoint("adminSurface"), AdminActionEndpoint: endpoint("adminAction"),
 		MetricsEndpoint: endpoint("metrics"),
 		HealthStatus:    contract.Plugin.Responses.Health.Status,
 		HealthBody:      cloneStringMap(contract.Plugin.Responses.Health.Body),
@@ -159,8 +168,36 @@ func presentationContracts(contract sdkinfra.HTTPContract) sdkpresentation.Contr
 			Required:     contract.Identity.Registration.Required,
 		}),
 		MaximumMetadataBytes: contract.Plugin.MaximumMetadataBytes,
-		ReadinessDeadline:    time.Duration(contract.Deadlines.PluginReadinessSeconds) * time.Second,
-		Problems:             problems, Errors: errors,
+		ArtifactStream: sdkpresentation.ArtifactStreamContract{
+			MediaType: artifact.MediaType, MetadataMediaType: artifact.MetadataMediaType,
+			Parts: append([]string(nil), artifact.Parts...), PartOrder: append([]string(nil), artifact.PartOrder...),
+			MaximumArtifactBytes: artifact.MaximumArtifactBytes, MinimumArtifactBytes: artifact.MinimumArtifactBytes,
+			MaximumMetadataBytes: artifact.MaximumMetadataBytes, MaximumMultipartOverheadBytes: artifact.MaximumMultipartOverheadBytes,
+			MaximumRequestBytes: artifact.MaximumRequestBytes, MaximumReceiptBytes: artifact.MaximumReceiptBytes,
+			AcceptedStatus: artifact.AcceptedStatus, FilenameForwarded: artifact.FilenameForwarded,
+			Deadline: time.Duration(contract.Deadlines.ArtifactStreamSeconds) * time.Second,
+			InvocationContext: sdkpresentation.ArtifactInvocationContract{
+				MaximumBytes: artifact.InvocationContext.MaximumBytes,
+				Required:     append([]string(nil), artifact.InvocationContext.Required...),
+				Optional:     append([]string(nil), artifact.InvocationContext.Optional...),
+				Headers:      cloneStringMap(artifact.InvocationContext.Headers),
+			},
+		},
+		AdminSurface: document(contract.Plugin.AdminSurface),
+		AdminAction: sdkpresentation.AdminActionContract{
+			MediaType: admin.MediaType, MaximumRequestBytes: admin.MaximumRequestBytes,
+			MaximumResponseBytes: admin.MaximumResponseBytes, MaximumPageIDBytes: admin.MaximumPageIDBytes,
+			MaximumActionIDBytes: admin.MaximumActionIDBytes, PathSegmentPattern: admin.PathSegmentPattern,
+			ResponseStatus: sdkpresentation.StatusRangeContract{Minimum: admin.ResponseStatus.Minimum, Maximum: admin.ResponseStatus.Maximum},
+			Deadline:       time.Duration(admin.DeadlineSeconds) * time.Second,
+			InvocationContext: sdkpresentation.AdminInvocationContract{
+				MaximumBytes: invocation.MaximumBytes, UnknownHeaderPrefix: invocation.UnknownHeaderPrefix,
+				Required: append([]string(nil), invocation.Required...), Optional: append([]string(nil), invocation.Optional...),
+				Headers: cloneStringMap(invocation.Headers),
+			},
+		},
+		ReadinessDeadline: time.Duration(contract.Deadlines.PluginReadinessSeconds) * time.Second,
+		Problems:          problems, Errors: errors,
 		OutcomeProblems: cloneStringMap(contract.OutcomeProblems),
 		SuccessOutcomes: append([]string(nil), contract.SuccessOutcomes...),
 	}

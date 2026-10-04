@@ -6,6 +6,7 @@ import (
 	"errors"
 	"regexp"
 
+	productcontracts "github.com/Liapoldus/forms-db/contracts"
 	"github.com/santhosh-tekuri/jsonschema/v6"
 )
 
@@ -30,8 +31,15 @@ func (s *Settings) ApplyDSNSecret(secret []byte) error {
 }
 
 func Apply(raw []byte) (Settings, error) {
+	limits, err := productcontracts.Limits()
+	if err != nil || len(raw) > limits.SettingsMaxBytes {
+		return Settings{}, errors.New("invalid forms-db settings size")
+	}
 	if len(bytes.TrimSpace(raw)) == 0 {
 		raw = []byte(`{}`)
+	}
+	if err := validateStrictJSONDocument(raw); err != nil {
+		return Settings{}, err
 	}
 	decoder := json.NewDecoder(bytes.NewReader(raw))
 	decoder.DisallowUnknownFields()

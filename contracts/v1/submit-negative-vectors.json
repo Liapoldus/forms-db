@@ -1,0 +1,31 @@
+{
+  "$id": "https://github.com/Liapoldus/forms-db/contracts/v1/submit-negative-vectors.json",
+  "version": 1,
+  "schema": "contracts/v1/submit-request.schema.json",
+  "cases": [
+    {
+      "name": "missing-data",
+      "payload": { "site": "portal", "schemaName": "contact" },
+      "expectedStatus": 422,
+      "expectedCode": "validation_failed"
+    },
+    {
+      "name": "non-object-data",
+      "payload": { "site": "portal", "schemaName": "contact", "data": ["not", "an", "object"] },
+      "expectedStatus": 422,
+      "expectedCode": "validation_failed"
+    },
+    {
+      "name": "additional-request-property",
+      "payload": { "site": "portal", "schemaName": "contact", "data": {}, "unexpected": true },
+      "expectedStatus": 422,
+      "expectedCode": "validation_failed"
+    },
+    {
+      "name": "configured-schema-rejects-value",
+      "payload": { "site": "portal", "schemaName": "contact", "data": { "email": 7 } },
+      "expectedStatus": 422,
+      "expectedCode": "validation_failed"
+    }
+  ]
+}

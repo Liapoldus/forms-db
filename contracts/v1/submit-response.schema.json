@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Liapoldus/forms-db/contracts/v1/submit-response.schema.json",
+  "title": "Ответ forms.submit v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "createdAt", "data"],
+  "properties": {
+    "id": { "type": "string", "pattern": "^frm_[A-Za-z0-9_-]{24}$" },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "data": { "type": "object" }
+  }
+}

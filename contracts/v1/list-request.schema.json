@@ -9,7 +9,7 @@
   "properties": {
     "site": { "type": "string", "minLength": 1 },
     "schemaName": { "type": "string", "minLength": 1 },
-    "cursor": { "type": "string" },
+    "cursor": { "type": "string", "maxLength": 4096 },
     "limit": {
       "type": "integer",
       "minimum": 1,

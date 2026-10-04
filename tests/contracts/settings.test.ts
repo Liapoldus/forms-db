@@ -13,7 +13,7 @@ describe('forms-db SDK settings contract', () => {
     expect(manifest.name).toBe('forms-db');
     expect(manifest.configuration.schema).toBe('contracts/v1/settings.schema.json');
     expect(manifest.capabilities.map((entry: { name: string }) => entry.name)).toEqual([
-      'forms.submit', 'forms.list', 'forms.delete', 'admin.surface.get',
+      'forms.submit', 'forms.list', 'forms.delete',
     ]);
   });
 

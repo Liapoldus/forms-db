@@ -7,10 +7,12 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"net/url"
 	"reflect"
 	"strings"
 	"time"
 
+	productcontracts "github.com/Liapoldus/forms-db/contracts"
 	"github.com/Liapoldus/forms-db/internal/domain/interfaces"
 	"github.com/Liapoldus/forms-db/internal/domain/models"
 	"github.com/Liapoldus/forms-db/internal/infrastructure/config"
@@ -35,6 +37,8 @@ type SQLRepository struct {
 	submissionsTable string
 	submissionIndex  string
 	schemas          map[string]json.RawMessage
+	operationSlots   chan struct{}
+	operationTimeout time.Duration
 }
 
 func NewRepository(ctx context.Context, driver, dsn, tablePrefix string, schemas map[string]json.RawMessage) (*SQLRepository, error) {
@@ -49,17 +53,33 @@ func NewRepository(ctx context.Context, driver, dsn, tablePrefix string, schemas
 	if err != nil {
 		return nil, err
 	}
+	limits, err := productcontracts.Limits()
+	if err != nil {
+		return nil, errors.New("load forms storage resource limits")
+	}
 	if !config.ValidTablePrefix(tablePrefix) {
 		return nil, errors.New("invalid forms storage table prefix")
+	}
+	if driver == "sqlite" {
+		dsn, err = sqliteDSNWithBusyTimeout(dsn, limits)
+		if err != nil {
+			return nil, errors.New("invalid forms SQLite connection options")
+		}
 	}
 	db, err := sql.Open(dialect.name, dsn)
 	if err != nil {
 		return nil, errors.New("open forms storage repository")
 	}
+	maxConnections := limits.DatabaseConcurrentOperationsMax
 	if driver == "sqlite" {
-		db.SetMaxOpenConns(1)
+		maxConnections = 1
 	}
-	if err := db.PingContext(ctx); err != nil {
+	db.SetMaxOpenConns(maxConnections)
+	db.SetMaxIdleConns(maxConnections)
+	operationTimeout := time.Duration(limits.DatabaseTimeoutMilliseconds) * time.Millisecond
+	initCtx, cancelInit := context.WithTimeout(ctx, operationTimeout)
+	defer cancelInit()
+	if err := db.PingContext(initCtx); err != nil {
 		_ = db.Close()
 		return nil, errors.New("connect forms storage repository")
 	}
@@ -72,12 +92,50 @@ func NewRepository(ctx context.Context, driver, dsn, tablePrefix string, schemas
 		submissionsTable: quoteIdentifier(dialect, tablePrefix+contract.Tables.Submissions),
 		submissionIndex:  quoteIdentifier(dialect, tablePrefix+contract.Indexes.SubmissionScopeCreatedAt),
 		schemas:          cloneSchemas(schemas),
+		operationSlots:   make(chan struct{}, limits.DatabaseConcurrentOperationsMax),
+		operationTimeout: operationTimeout,
 	}
-	if err := repository.initialize(ctx); err != nil {
+	if err := repository.initialize(initCtx); err != nil {
 		_ = db.Close()
 		return nil, err
 	}
 	return repository, nil
+}
+
+func sqliteDSNWithBusyTimeout(dsn string, limits productcontracts.ResourceLimits) (string, error) {
+	base, query, hasQuery := strings.Cut(dsn, "?")
+	values := make(url.Values)
+	if hasQuery {
+		parsed, err := url.ParseQuery(query)
+		if err != nil {
+			return "", err
+		}
+		values = parsed
+	}
+	pragmas := values[limits.SQLitePragmaQueryParameter]
+	filtered := pragmas[:0]
+	for _, pragma := range pragmas {
+		if !strings.HasPrefix(strings.ToLower(strings.TrimSpace(pragma)), strings.ToLower(limits.SQLiteBusyTimeoutPragma)+"=") {
+			filtered = append(filtered, pragma)
+		}
+	}
+	filtered = append(filtered, fmt.Sprintf("%s=%d", limits.SQLiteBusyTimeoutPragma, limits.DatabaseTimeoutMilliseconds))
+	values[limits.SQLitePragmaQueryParameter] = filtered
+	return base + "?" + values.Encode(), nil
+}
+
+func (r *SQLRepository) beginOperation(parent context.Context) (context.Context, func(), error) {
+	ctx, cancel := context.WithTimeout(parent, r.operationTimeout)
+	select {
+	case r.operationSlots <- struct{}{}:
+		return ctx, func() {
+			<-r.operationSlots
+			cancel()
+		}, nil
+	case <-ctx.Done():
+		cancel()
+		return nil, nil, errors.New("forms storage operation timed out")
+	}
 }
 
 func sqlDialects() map[string]sqlDialect {
@@ -162,6 +220,11 @@ func (r *SQLRepository) initialize(ctx context.Context) error {
 }
 
 func (r *SQLRepository) Submit(ctx context.Context, submission models.Submission) (models.Submission, error) {
+	ctx, release, err := r.beginOperation(ctx)
+	if err != nil {
+		return models.Submission{}, err
+	}
+	defer release()
 	if submission.ID == "" {
 		id, err := newSubmissionID()
 		if err != nil {
@@ -227,6 +290,11 @@ func (r *SQLRepository) upsertSchema(ctx context.Context, tx *sql.Tx, site, name
 }
 
 func (r *SQLRepository) List(ctx context.Context, site, schema string, filter *models.SubmissionFilter, after *models.SubmissionCursor, limit int) ([]models.Submission, error) {
+	ctx, release, err := r.beginOperation(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer release()
 	if limit < 1 {
 		limit = 50
 	}
@@ -340,6 +408,11 @@ func equalJSON(left, right any) bool {
 }
 
 func (r *SQLRepository) Delete(ctx context.Context, site, schema, id string) error {
+	ctx, release, err := r.beginOperation(ctx)
+	if err != nil {
+		return err
+	}
+	defer release()
 	columns := r.contract.Columns
 	query := fmt.Sprintf("DELETE FROM %s WHERE %s = %s AND %s = %s AND %s = %s",
 		r.submissionsTable,

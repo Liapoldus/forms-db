@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Liapoldus/forms-db/contracts/v1/submit-request.schema.json",
+  "title": "Запрос forms.submit v1",
+  "description": "Продуктовый peer payload. Содержимое data дополнительно проверяется по JSON Schema активной конфигурации forms-db.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["site", "schemaName", "data"],
+  "properties": {
+    "site": { "type": "string", "minLength": 1 },
+    "schemaName": { "type": "string", "minLength": 1 },
+    "data": { "type": "object" }
+  }
+}

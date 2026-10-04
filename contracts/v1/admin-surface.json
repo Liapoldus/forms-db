@@ -1,12 +1,36 @@
 {
   "version": 1,
   "plugin": "forms-db",
-  "requiredCapabilities": ["admin.surface.get", "forms.list", "forms.delete"],
+  "requiredCapabilities": ["forms.list", "forms.delete"],
   "pages": [
     {
       "id": "submissions",
       "title": "Form submissions",
       "capability": "forms.list",
+      "query": {
+        "id": "query",
+        "capability": "forms.list",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "site": { "type": "string", "minLength": 1 },
+            "schemaName": { "type": "string", "minLength": 1 },
+            "cursor": { "type": "string", "maxLength": 4096 },
+            "limit": { "type": "integer", "minimum": 1, "maximum": 100, "default": 50 },
+            "filter": {
+              "type": "object",
+              "properties": {
+                "field": { "type": "string", "minLength": 1 },
+                "equals": true
+              },
+              "required": ["field", "equals"],
+              "additionalProperties": false
+            }
+          },
+          "required": ["site", "schemaName"],
+          "additionalProperties": false
+        }
+      },
       "permissions": ["plugins.forms-db.read", "plugins.forms-db.write"],
       "sections": [
         {

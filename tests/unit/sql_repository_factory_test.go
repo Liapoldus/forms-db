@@ -128,11 +128,11 @@ func TestRepositoryFactoryUsesStructuralJSONEqualityAndDistinguishesMissingFromN
 	}
 }
 
-func TestConfigApplyAcceptsSQLAdaptersAndValidatesTablePrefix(t *testing.T) {
+func TestConfigurationValidationAcceptsSQLAdaptersAndValidatesTablePrefix(t *testing.T) {
 	for _, driver := range []string{"postgres", "mysql"} {
 		settings, err := config.Apply([]byte(`{"driver":"` + driver + `","dsn":"configured-secret","tablePrefix":"forms_"}`))
 		if err != nil || settings.Driver != driver {
-			t.Fatalf("ConfigApply must accept the documented %s adapter: settings=%#v err=%v", driver, settings, err)
+			t.Fatalf("configuration validation must accept the documented %s adapter: settings=%#v err=%v", driver, settings, err)
 		}
 	}
 	for _, prefix := range []string{"", "x`; DROP TABLE submissions;--", "1forms_", "forms.schema."} {

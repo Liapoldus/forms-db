@@ -17,6 +17,8 @@ var ErrInvalidSettings = errors.New("invalid forms-db settings")
 var ErrStorageUnavailable = errors.New("forms-db storage unavailable")
 
 // RepositoryBuilder prepares a complete candidate before it can become active.
+// On error it closes any partially created repository itself and returns no
+// usable repository to the caller.
 type RepositoryBuilder func(context.Context, config.Settings) (interfaces.Repository, error)
 
 // SecretProvider redeems one generation-scoped secret through the Plugin SDK.
@@ -58,6 +60,22 @@ func (adapter *Adapter) SetSecretProvider(secrets SecretProvider) {
 	adapter.mu.Lock()
 	defer adapter.mu.Unlock()
 	adapter.secrets = secrets
+}
+
+// SecretProvider forwards the active SDK grant broker to product handlers. The
+// adapter may be constructed before the SDK lifecycle initializes this broker;
+// callers fail closed until the lifecycle has installed it.
+func (adapter *Adapter) SecretProvider(ctx context.Context, reference, purpose string) (sdkmodels.SecretValue, error) {
+	if adapter == nil {
+		return sdkmodels.SecretValue{}, ErrStorageUnavailable
+	}
+	adapter.mu.RLock()
+	secrets := adapter.secrets
+	adapter.mu.RUnlock()
+	if secrets == nil {
+		return sdkmodels.SecretValue{}, ErrStorageUnavailable
+	}
+	return secrets.SecretProvider(ctx, reference, purpose)
 }
 
 func (adapter *Adapter) Manifest(context.Context) ([]byte, error) {
@@ -103,9 +121,9 @@ func (adapter *Adapter) Apply(ctx context.Context, incoming sdkmodels.Configurat
 	}
 	candidate, err := adapter.build(ctx, settings)
 	if err != nil || candidate == nil {
-		if closer, ok := candidate.(io.Closer); ok {
-			_ = closer.Close()
-		}
+		// A failed builder may return a typed nil inside the repository interface.
+		// It owns cleanup on failure; calling Close here could panic before Reload
+		// clears its applying generation.
 		return ErrStorageUnavailable
 	}
 	if ctx.Err() != nil {

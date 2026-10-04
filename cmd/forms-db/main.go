@@ -23,7 +23,7 @@ import (
 	"github.com/Liapoldus/forms-db/internal/presentation/restplugin"
 	sdkmodels "github.com/Liapoldus/plugin-sdk/domain/models"
 	sdkinfra "github.com/Liapoldus/plugin-sdk/infrastructure"
-	"github.com/Liapoldus/pluginprotocol/presentation/peer"
+	"github.com/Liapoldus/pluginprotocol/v2/presentation/peer"
 )
 
 type options struct {
@@ -114,17 +114,18 @@ func run(args []string) (runErr error) {
 	if err != nil {
 		return err
 	}
-	stage = "sdk-rest-server"
-	server, _, secrets, err := restplugin.NewMutualTLSServer(active, restplugin.LifecycleOptions{
-		Source: source, Broker: broker, Identity: identity, Credentials: credentials,
-		CorePeer: coreClientPeer, Revocation: revocation,
-		ErrorLog: log.New(io.Discard, "", 0), LogOutput: os.Stdout,
-	})
+	stage = "peer-handler"
+	peerHandler, err := peerplugin.New(active, active, callerAuthorizer{uri: settings.peerCaller})
 	if err != nil {
 		return err
 	}
-	stage = "peer-handler"
-	peerHandler, err := peerplugin.New(active, secrets, callerAuthorizer{uri: settings.peerCaller})
+	stage = "sdk-rest-server"
+	server, _, _, err := restplugin.NewMutualTLSServer(active, restplugin.LifecycleOptions{
+		Source: source, Broker: broker, Identity: identity, Credentials: credentials,
+		CorePeer: coreClientPeer, Revocation: revocation,
+		ErrorLog: log.New(io.Discard, "", 0), LogOutput: os.Stdout,
+		AdminSurface: peerHandler, AdminActions: peerHandler,
+	})
 	if err != nil {
 		return err
 	}
@@ -186,7 +187,11 @@ func buildRepository(ctx context.Context, settings config.Settings) (interfaces.
 	if settings.Driver == "memory" {
 		return storage.NewMemoryRepository(), nil
 	}
-	return storage.NewRepository(ctx, settings.Driver, string(settings.DSN), settings.TablePrefix, settings.Schemas)
+	repository, err := storage.NewRepository(ctx, settings.Driver, string(settings.DSN), settings.TablePrefix, settings.Schemas)
+	if err != nil {
+		return nil, err
+	}
+	return repository, nil
 }
 
 func parseOptions(args []string) (options, error) {
