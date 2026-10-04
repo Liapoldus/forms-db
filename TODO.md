@@ -42,8 +42,9 @@ SQL walkthrough: он проверен на macOS, а Linux VM полный ск
 прошёл на memory backend. Затем тот же production Core→Server→forms-db fixture
 пройден в Linux VM на PostgreSQL 16, MySQL 8.0 и MariaDB 11.4 (3/3), включая
 concurrency, candidate refusal/rollback, outage/recovery и restart persistence.
-Hosted CI и published docs pins остаются открытыми. Per-site isolation явно
-исключена из v1 решением владельца от 2026-10-04.
+На дату этого snapshot-а hosted CI и published docs pins оставались открытыми;
+оба gate прошли 2026-10-05. Per-site isolation явно исключена из v1 решением
+владельца от 2026-10-04.
 
 ## Документация
 
