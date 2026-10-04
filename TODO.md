@@ -49,8 +49,9 @@ Hosted CI и published docs pins остаются открытыми. Per-site i
 
 - [x] Forms-db-owned Markdown/example перенесены в `docs/site/`; общие Core
   страницы принадлежат Core, сайт агрегирует owner docs по pinned SHA.
-- [ ] После изменения owner docs обновить pin в
-  `liapoldus.github.io/docs-sources.json` и проверить единый сайт.
+- [x] Owner docs опубликованы; pin
+  `b25e654720bf5811da48a1d15f64f32bf55409a4` синхронизирован, VitePress
+  build/deployment прошли.
 
 ## Проверенное состояние на 2026-10-02
 
@@ -432,8 +433,9 @@ storage semantics, errors и vectors принадлежат этому
 - [x] На 2026-10-04 повторно пройти `go test ./...`, `go build ./...`,
   `go vet ./...`, TypeScript suite и child-process security/integration в
   OrbStack Ubuntu guest; SQL E2E проверить на PostgreSQL, MySQL и MariaDB. Все
-  перечисленные проверки прошли; hosted CI остаётся открытым, а per-site policy
-  явно не входит в v1 по решению владельца.
+  перечисленные проверки прошли; hosted CI и Core cross-repository integration
+  также прошли. Tag `v1.0.1` создан после gates. Per-site policy явно не входит
+  в v1 по решению владельца.
 
 ## Не входит в v1
 
