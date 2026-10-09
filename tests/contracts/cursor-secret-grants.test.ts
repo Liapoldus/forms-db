@@ -5,7 +5,7 @@ import test from 'node:test';
 
 const cursorSource = readFileSync('internal/infrastructure/security/cursor.go', 'utf8');
 const cursorContract = readContract('cursor.json');
-const peerSource = readFileSync('internal/presentation/peerplugin/handler.go', 'utf8');
+const peerSource = readFileSync('internal/presentation/peerplugin/list.go', 'utf8');
 const restSource = readFileSync('internal/presentation/restplugin/adapter.go', 'utf8');
 const runtimeSource = readFileSync('internal/presentation/restplugin/runtime.go', 'utf8');
 const mainSource = readFileSync('cmd/forms-db/main.go', 'utf8');
