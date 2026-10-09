@@ -2,5 +2,6 @@
 /coverage.out
 /tmp/
 node_modules/
+.DS_Store
 .tools/
 /child-process
