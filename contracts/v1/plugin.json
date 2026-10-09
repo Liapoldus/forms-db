@@ -1,13 +1,22 @@
 {
-  "name": "forms-db",
-  "configuration": {
-    "schemaVersion": 1,
-    "schema": "contracts/v1/settings.schema.json"
-  },
+  "adminSurface": "contracts/v1/admin-surface.json",
   "capabilities": [
-    { "name": "forms.submit", "mode": "call" },
-    { "name": "forms.list", "mode": "call" },
-    { "name": "forms.delete", "mode": "call" }
+    {
+      "mode": "call",
+      "name": "forms.submit"
+    },
+    {
+      "mode": "call",
+      "name": "forms.list"
+    },
+    {
+      "mode": "call",
+      "name": "forms.delete"
+    }
   ],
-  "adminSurface": "contracts/v1/admin-surface.json"
+  "configuration": {
+    "schema": "contracts/v1/settings.schema.json",
+    "schemaVersion": 1
+  },
+  "name": "forms-db"
 }

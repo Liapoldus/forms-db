@@ -1,31 +1,53 @@
 {
   "$id": "https://github.com/Liapoldus/forms-db/contracts/v1/submit-negative-vectors.json",
-  "version": 1,
-  "schema": "contracts/v1/submit-request.schema.json",
   "cases": [
     {
+      "expectedCode": "validation_failed",
+      "expectedStatus": 422,
       "name": "missing-data",
-      "payload": { "site": "portal", "schemaName": "contact" },
-      "expectedStatus": 422,
-      "expectedCode": "validation_failed"
+      "payload": {
+        "schemaName": "contact",
+        "site": "portal"
+      }
     },
     {
+      "expectedCode": "validation_failed",
+      "expectedStatus": 422,
       "name": "non-object-data",
-      "payload": { "site": "portal", "schemaName": "contact", "data": ["not", "an", "object"] },
-      "expectedStatus": 422,
-      "expectedCode": "validation_failed"
+      "payload": {
+        "data": [
+          "not",
+          "an",
+          "object"
+        ],
+        "schemaName": "contact",
+        "site": "portal"
+      }
     },
     {
+      "expectedCode": "validation_failed",
+      "expectedStatus": 422,
       "name": "additional-request-property",
-      "payload": { "site": "portal", "schemaName": "contact", "data": {}, "unexpected": true },
-      "expectedStatus": 422,
-      "expectedCode": "validation_failed"
+      "payload": {
+        "data": {},
+        "schemaName": "contact",
+        "site": "portal",
+        "unexpected": true
+      }
     },
     {
-      "name": "configured-schema-rejects-value",
-      "payload": { "site": "portal", "schemaName": "contact", "data": { "email": 7 } },
+      "expectedCode": "validation_failed",
       "expectedStatus": 422,
-      "expectedCode": "validation_failed"
+      "name": "configured-schema-rejects-value",
+      "payload": {
+        "data": {
+          "email": 7
+        },
+        "schemaName": "contact",
+        "site": "portal"
+      }
     }
-  ]
+  ],
+  "schema": "contracts/v1/submit-request.schema.json",
+  "version": 1
 }

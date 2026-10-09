@@ -23,13 +23,16 @@ plugin instance/configuration/endpoint/policy; Server plugin обслужива�
   только в `contracts/v1/` этого plugin.
 - Не добавлять forms-specific ветви, schema decoding или SQL/storage знание в
   Core, Plugin SDK или `pluginprotocol`.
-- Constructor и `react-lib` заморожены. Не редактировать их код, зависимости,
-  tests или TODO. Общие settings настраиваются Core API; plugin Admin Surface
-  описывает только product-owned data/actions и не реализует настройки через
-  lifecycle RPC.
+- Общие settings настраиваются Core API; plugin Admin Surface описывает только
+  product-owned data/actions и не реализует настройки через lifecycle RPC.
 - V1 запускается оператором вручную; plugin не устанавливает, запускает,
-  рестартует, масштабирует и не удаляет workloads. Не добавлять TUF/catalog,
-  Docker/Compose/Swarm/Kubernetes или CAPTCHA/Identity.
+  рестартует, масштабирует и не удаляет workloads. В v2 forms-db repository и
+  product runtime не изменяются: текущая v1 функция служит только regression
+  baseline, а generic lifecycle/rollout проверяется на fixtures. Replica/SQL
+  cohort compatibility, Docker/Swarm/Kubernetes product integration и
+  website/content относятся к v3. CAPTCHA и Identity также относятся к v3;
+  их репозитории заморожены до отдельной разморозки. Установку и обновления
+  workloads выполняет оператор; Core их не выполняет.
 
 ## Конфигурация, данные и secrets
 
@@ -62,6 +65,11 @@ plugin instance/configuration/endpoint/policy; Server plugin обслужива�
   или request payloads в logs/errors.
 - Tests держать под `tests/`, не помещать fixture или Go test code в
   production packages. Использовать существующие Go + Vitest runners.
+- SQL templates принадлежат `internal/infrastructure/storage/sql_statements.go`;
+  durable identifiers, ID/list bounds и внутренние сообщения — typed Go constants
+  в `storage_contract.go` того же пакета. Не возвращать их в runtime JSON/query
+  assets. Native Go regression tests размещать в `tests/unit/` и
+  `tests/integration/`; внешние SQL gates без DSN остаются OPEN.
 
 ## Документация
 

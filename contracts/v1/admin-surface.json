@@ -1,75 +1,141 @@
 {
-  "version": 1,
-  "plugin": "forms-db",
-  "requiredCapabilities": ["forms.list", "forms.delete"],
   "pages": [
     {
-      "id": "submissions",
-      "title": "Form submissions",
       "capability": "forms.list",
+      "id": "submissions",
+      "permissions": [
+        "plugins.forms-db.read",
+        "plugins.forms-db.write"
+      ],
       "query": {
-        "id": "query",
         "capability": "forms.list",
+        "id": "query",
         "inputSchema": {
-          "type": "object",
+          "additionalProperties": false,
           "properties": {
-            "site": { "type": "string", "minLength": 1 },
-            "schemaName": { "type": "string", "minLength": 1 },
-            "cursor": { "type": "string", "maxLength": 4096 },
-            "limit": { "type": "integer", "minimum": 1, "maximum": 100, "default": 50 },
+            "cursor": {
+              "maxLength": 4096,
+              "type": "string"
+            },
             "filter": {
-              "type": "object",
+              "additionalProperties": false,
               "properties": {
-                "field": { "type": "string", "minLength": 1 },
-                "equals": true
+                "equals": true,
+                "field": {
+                  "minLength": 1,
+                  "type": "string"
+                }
               },
-              "required": ["field", "equals"],
-              "additionalProperties": false
+              "required": [
+                "field",
+                "equals"
+              ],
+              "type": "object"
+            },
+            "limit": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "schemaName": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "site": {
+              "minLength": 1,
+              "type": "string"
             }
           },
-          "required": ["site", "schemaName"],
-          "additionalProperties": false
+          "required": [
+            "site",
+            "schemaName"
+          ],
+          "type": "object"
         }
       },
-      "permissions": ["plugins.forms-db.read", "plugins.forms-db.write"],
       "sections": [
         {
-          "id": "filters",
-          "kind": "form",
           "fields": [
-            { "key": "site", "type": "select", "required": true },
-            { "key": "schemaName", "type": "select", "required": true },
-            { "key": "field", "type": "string" },
-            { "key": "equals", "type": "string" }
-          ]
+            {
+              "key": "site",
+              "required": true,
+              "type": "select"
+            },
+            {
+              "key": "schemaName",
+              "required": true,
+              "type": "select"
+            },
+            {
+              "key": "field",
+              "type": "string"
+            },
+            {
+              "key": "equals",
+              "type": "string"
+            }
+          ],
+          "id": "filters",
+          "kind": "form"
         },
         {
-          "id": "records",
-          "kind": "table",
-          "dataCapability": "forms.list",
-          "columns": ["id", "site", "schemaName", "createdAt", "data"],
           "actions": [
             {
-              "id": "delete",
-              "title": "Delete submission",
               "capability": "forms.delete",
               "confirmation": "Delete this submission permanently?",
               "dangerous": true,
+              "id": "delete",
               "inputSchema": {
-                "type": "object",
+                "additionalProperties": false,
                 "properties": {
-                  "site": { "type": "string", "minLength": 1 },
-                  "schemaName": { "type": "string", "minLength": 1 },
-                  "id": { "type": "string", "minLength": 1 }
+                  "id": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "schemaName": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "site": {
+                    "minLength": 1,
+                    "type": "string"
+                  }
                 },
-                "required": ["site", "schemaName", "id"],
-                "additionalProperties": false
+                "required": [
+                  "site",
+                  "schemaName",
+                  "id"
+                ],
+                "type": "object"
               },
-              "rowInput": { "site": "site", "schemaName": "schemaName", "id": "id" }
+              "rowInput": {
+                "id": "id",
+                "schemaName": "schemaName",
+                "site": "site"
+              },
+              "title": "Delete submission"
             }
-          ]
+          ],
+          "columns": [
+            "id",
+            "site",
+            "schemaName",
+            "createdAt",
+            "data"
+          ],
+          "dataCapability": "forms.list",
+          "id": "records",
+          "kind": "table"
         }
-      ]
+      ],
+      "title": "Form submissions"
     }
-  ]
+  ],
+  "plugin": "forms-db",
+  "requiredCapabilities": [
+    "forms.list",
+    "forms.delete"
+  ],
+  "version": 1
 }

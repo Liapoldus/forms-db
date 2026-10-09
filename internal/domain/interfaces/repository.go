@@ -1,3 +1,4 @@
+// Package interfaces defines domain persistence boundaries.
 package interfaces
 
 import (

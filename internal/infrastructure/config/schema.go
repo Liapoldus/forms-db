@@ -1,26 +1,15 @@
 package config
 
 import (
-	_ "embed"
 	"encoding/json"
 	"errors"
+	"github.com/Liapoldus/forms-db/contracts/policy"
 	"net/url"
 	"regexp"
 
 	productcontracts "github.com/Liapoldus/forms-db/contracts"
 	"github.com/santhosh-tekuri/jsonschema/v6"
 )
-
-//go:embed contracts/schema-validation.json
-var schemaValidationContractJSON []byte
-
-type schemaValidationContract struct {
-	SchemaNamePattern       string `json:"schemaNamePattern"`
-	TablePrefixPattern      string `json:"tablePrefixPattern"`
-	Draft2020Schema         string `json:"draft2020SchemaUrl"`
-	ResourceBase            string `json:"resourceBase"`
-	MaxSubmissionProperties int    `json:"maxSubmissionProperties"`
-}
 
 type unavailableSchemaLoader struct{}
 
@@ -33,14 +22,8 @@ func compileSchemas(schemas map[string]json.RawMessage) (map[string]*jsonschema.
 	if err != nil {
 		return nil, 0, errors.New("invalid resource limit contract")
 	}
-	var contract schemaValidationContract
-	if err := json.Unmarshal(schemaValidationContractJSON, &contract); err != nil {
-		return nil, 0, errors.New("invalid schema validation contract")
-	}
-	namePattern, err := regexp.Compile(contract.SchemaNamePattern)
-	if err != nil || contract.SchemaNamePattern == "" || contract.Draft2020Schema == "" || contract.ResourceBase == "" || contract.MaxSubmissionProperties < 1 {
-		return nil, 0, errors.New("invalid schema validation contract")
-	}
+	contract := policy.Validation()
+	namePattern := regexp.MustCompile(contract.SchemaNamePattern)
 	compiled := make(map[string]*jsonschema.Schema, len(schemas))
 	if len(schemas) == 0 {
 		return compiled, contract.MaxSubmissionProperties, nil
@@ -62,7 +45,7 @@ func compileSchemas(schemas map[string]json.RawMessage) (map[string]*jsonschema.
 			return nil, 0, errors.New("registered JSON Schema exceeds resource limits")
 		}
 		if schema, ok := document.(map[string]any); ok {
-			if draft, exists := schema["$schema"]; exists && draft != contract.Draft2020Schema {
+			if draft, exists := schema["$schema"]; exists && draft != contract.Draft2020SchemaURL {
 				return nil, 0, errors.New("registered schema must use JSON Schema Draft 2020-12")
 			}
 		}

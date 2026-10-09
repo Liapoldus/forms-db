@@ -125,7 +125,10 @@ func (sink collectorSink) SetReady(ready bool)           { sink.collector.SetRea
 
 func presentationContracts(contract sdkinfra.HTTPContract) sdkpresentation.Contracts {
 	endpoint := func(name string) sdkpresentation.Endpoint {
-		value, _ := contract.Endpoint(name)
+		value, err := contract.Endpoint(name)
+		if err != nil {
+			panic("validated SDK contract endpoint missing")
+		}
 		return sdkpresentation.Endpoint{Method: value.Method, Path: value.Path}
 	}
 	document := func(value sdkinfra.DocumentContract) sdkpresentation.DocumentContract {

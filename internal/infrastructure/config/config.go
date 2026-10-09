@@ -1,9 +1,11 @@
+// Package config validates exact forms-db settings and registered schemas.
 package config
 
 import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"github.com/Liapoldus/forms-db/contracts/policy"
 	"regexp"
 
 	productcontracts "github.com/Liapoldus/forms-db/contracts"
@@ -22,8 +24,7 @@ type Settings struct {
 }
 
 func (s *Settings) ApplyDSNSecret(secret []byte) error {
-	contract, err := loadSecretSettingsContract()
-	if err != nil || contract.DSNField == "" || contract.DSNType != "secret" || len(secret) == 0 || s.DSNReference == "" {
+	if len(secret) == 0 || s.DSNReference == "" {
 		return errors.New("invalid storage secret grant")
 	}
 	s.DSN = append(s.DSN[:0], secret...)
@@ -69,10 +70,5 @@ func Apply(raw []byte) (Settings, error) {
 }
 
 func ValidTablePrefix(prefix string) bool {
-	var contract schemaValidationContract
-	if err := json.Unmarshal(schemaValidationContractJSON, &contract); err != nil || contract.TablePrefixPattern == "" {
-		return false
-	}
-	pattern, err := regexp.Compile(contract.TablePrefixPattern)
-	return err == nil && pattern.MatchString(prefix)
+	return regexp.MustCompile(policy.Validation().TablePrefixPattern).MatchString(prefix)
 }

@@ -183,7 +183,7 @@ go vet ./...
 go test ./...
 ```
 
-## Страницы в Constructor
+## Административная поверхность
 
 forms-db публикует одну declarative admin page через общий
 [Plugin Admin Pages](/plugins/admin-pages) contract и Plugin SDK REST. Он не
@@ -203,16 +203,16 @@ permissions, если их проверяет UI backend; они не огран
 `field`/`equals`. Table вызывает описанное в
 Admin Surface действие `submissions/query` через Core Management API;
 она показывает только `id`, `createdAt`, `data`, использует opaque cursor и
-limit не выше 100. Значения `data` экранируются Constructor и never rendered
+limit не выше 100. Значения `data` экранирует клиент управления и never rendered
 as HTML. `site` получает варианты из объявленного `optionsSource` capability
 forms.list; `schemaName` запрашивает варианты тем же fixed query endpoint с
-выбранным `site` как typed dependency. Constructor не превращает пустой select
+выбранным `site` как typed dependency. Клиент не превращает пустой select
 в свободный ввод.
 
 `Delete submission` вызывает `forms.delete` только для выбранной записи и
 в Controller может дополнительно требовать `plugins.forms-db.write`, но Core
 в любом случае требует `platform-admin`. Перед mutation Core возвращает
-неисполняющий `428 confirmation_required` с одноразовым token; Constructor
+неисполняющий `428 confirmation_required` с одноразовым token; клиент
 показывает объявленное confirmation-сообщение и повторяет неизменный запрос
 только после явного подтверждения. Оба запроса используют один
 `Idempotency-Key`, а digest Surface передаётся через `If-Match`. Core
@@ -258,6 +258,57 @@ settings, включая DSN, не передаются через команд�
   --peer-key=/absolute/path/to/forms-peer-key.pem \
   --peer-carrier=tcp
 ```
+
+## Направление развития в v3: website и редактор содержимого
+
+Этот раздел фиксирует целевую продуктовую идею для v3, а не контракт текущей
+версии. Вся дальнейшая работа над forms-db — включая replica/SQL compatibility,
+rollout cohorts и website/content — отложена до v3. Это не меняет v1
+capabilities, settings, Admin Surface, права
+`platform-admin` или ручной запуск. До реализации v3 решение нужно уточнить по
+вопросам в [`TODO.md`](https://github.com/Liapoldus/forms-db/blob/main/TODO.md).
+
+V2 Core/SDK lifecycle и rollout не требуют изменений forms-db: generic
+поведение проверяется на нейтральных fixtures, а существующий forms-db v1
+остаётся regression target. Ранее выполненные локальные SQL replica tests
+сохранены в owner TODO как evidence; они не означают поддержку shared multi-host
+storage, schema-cohort rollout или production readiness. Новые product
+совместимости и acceptance открываются только вместе с v3 owner планом.
+
+В v3 forms-db может развиться из backend-а отправок форм в управляемый
+плагином website-продукт: владелец задаёт структуру и данные сайта, плагин
+сохраняет контент в поддерживаемом им хранилище, а автоматически
+генерируемая админ-панель позволяет его просматривать и редактировать. Панель
+должна поддерживать ролевую авторизацию и быть доступна на отдельно
+настраиваемом сетевом endpoint/порту; она не должна случайно становиться
+публичным маршрутом сайта. Источник метаданных для генерации UI и точная модель
+ролей пока не утверждены.
+
+Предварительно предполагаются такие обязанности forms-db:
+
+- хранить контент сайта и связанные с ним продуктовые данные в собственном
+  storage; не переносить эти данные в SQLite Core;
+- валидировать и применять plugin-owned schema/config через общий lifecycle
+  Plugin SDK; Core остаётся хранилищем точных config bytes и не интерпретирует
+  сайт, роли, контент или DB-модель;
+- предоставлять продуктовые операции чтения и изменения контента и описывать
+  их собственными versioned contracts;
+- предоставлять или собирать административный UI для этих операций, не
+  добавляя UI-specific контракты в `pluginprotocol`; интерфейс должен
+  генерироваться из явно утверждённых product metadata/schema, а не из
+  произвольного introspection базы данных;
+- использовать разрешённые межплагинные вызовы только через generic
+  `pluginprotocol`; публикация/доставка публичного сайта и владение listener-ом
+  должны быть согласованы с Server plugin, а не обходить его границу без
+  отдельного решения.
+
+В v3 потребуется описать и проверить границы доступа к панели, роли и их
+назначение, разделение публичного контента и административных операций,
+изменение схемы/миграции, публикацию и откат сайта, резервное копирование,
+совместную работу с Server plugin, отказоустойчивость и безопасное обновление
+контента. Нельзя считать текущий `platform-admin` policy достаточной моделью
+для будущей website-админки: эта политика утверждена только для v1 Admin
+Surface forms-db.
 
 `--server-cert`/`--server-key` идентифицируют REST replica, ожидаемую Core в
 `plugins[].replicas[].expectedPeerIdentity`. `--client-cert`/`--client-key`

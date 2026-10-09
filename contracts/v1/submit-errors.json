@@ -1,9 +1,15 @@
 {
   "$id": "https://github.com/Liapoldus/forms-db/contracts/v1/submit-errors.json",
   "capability": "forms.submit",
-  "version": 1,
   "errors": {
-    "validation_failed": { "http": 422, "retryable": false },
-    "storage_unavailable": { "http": 503, "retryable": true }
-  }
+    "storage_unavailable": {
+      "http": 503,
+      "retryable": true
+    },
+    "validation_failed": {
+      "http": 422,
+      "retryable": false
+    }
+  },
+  "version": 1
 }

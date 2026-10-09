@@ -1,17 +1,19 @@
 [
   {
+    "expectedPayload": {
+      "id": "frm_123",
+      "schemaName": "contact",
+      "site": "portal"
+    },
     "name": "forms-delete-from-selected-submission-row",
     "selectedRow": {
-      "id": "frm_123",
-      "site": "portal",
-      "schemaName": "contact",
       "createdAt": "2026-01-01T00:00:00Z",
-      "data": { "email": "a@example.com" }
-    },
-    "expectedPayload": {
-      "site": "portal",
+      "data": {
+        "email": "a@example.com"
+      },
+      "id": "frm_123",
       "schemaName": "contact",
-      "id": "frm_123"
+      "site": "portal"
     }
   }
 ]

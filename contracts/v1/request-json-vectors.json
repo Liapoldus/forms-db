@@ -1,49 +1,49 @@
 {
   "$id": "https://github.com/Liapoldus/forms-db/contracts/v1/request-json-vectors.json",
-  "version": 1,
   "description": "Каждый capability request содержит один JSON object. Дублирующиеся JSON members отклоняются; имена верхнего уровня, сопоставляемые Go-структурам, также не могут различаться только регистром. Второй JSON document после первого запрещён.",
   "invalidRequests": [
     {
+      "capability": "forms.submit",
+      "expectedCode": "validation_failed",
+      "expectedStatus": 422,
       "name": "duplicate-root-member",
-      "capability": "forms.submit",
-      "payload": "{\"site\":\"portal\",\"site\":\"attacker\",\"schemaName\":\"contact\",\"data\":{\"email\":\"duplicate@example.test\"}}",
-      "expectedStatus": 422,
-      "expectedCode": "validation_failed"
+      "payload": "{\"site\":\"portal\",\"site\":\"attacker\",\"schemaName\":\"contact\",\"data\":{\"email\":\"duplicate@example.test\"}}"
     },
     {
+      "capability": "forms.submit",
+      "expectedCode": "validation_failed",
+      "expectedStatus": 422,
       "name": "case-folded-root-member-collision",
-      "capability": "forms.submit",
-      "payload": "{\"site\":\"portal\",\"SITE\":\"attacker\",\"schemaName\":\"contact\",\"data\":{\"email\":\"case-folded@example.test\"}}",
-      "expectedStatus": 422,
-      "expectedCode": "validation_failed"
+      "payload": "{\"site\":\"portal\",\"SITE\":\"attacker\",\"schemaName\":\"contact\",\"data\":{\"email\":\"case-folded@example.test\"}}"
     },
     {
+      "capability": "forms.submit",
+      "expectedCode": "validation_failed",
+      "expectedStatus": 422,
       "name": "duplicate-nested-member",
-      "capability": "forms.submit",
-      "payload": "{\"site\":\"portal\",\"schemaName\":\"contact\",\"data\":{\"email\":\"first@example.test\",\"email\":\"second@example.test\"}}",
-      "expectedStatus": 422,
-      "expectedCode": "validation_failed"
+      "payload": "{\"site\":\"portal\",\"schemaName\":\"contact\",\"data\":{\"email\":\"first@example.test\",\"email\":\"second@example.test\"}}"
     },
     {
+      "capability": "forms.submit",
+      "expectedCode": "validation_failed",
+      "expectedStatus": 422,
       "name": "trailing-json-document",
-      "capability": "forms.submit",
-      "payload": "{\"site\":\"portal\",\"schemaName\":\"contact\",\"data\":{\"email\":\"trailing@example.test\"}} {}",
-      "expectedStatus": 422,
-      "expectedCode": "validation_failed"
+      "payload": "{\"site\":\"portal\",\"schemaName\":\"contact\",\"data\":{\"email\":\"trailing@example.test\"}} {}"
     },
     {
-      "name": "list-duplicate-root-member",
       "capability": "forms.list",
-      "payload": "{\"site\":\"portal\",\"site\":\"attacker\",\"schemaName\":\"contact\"}",
+      "expectedCode": "validation_failed",
       "expectedStatus": 422,
-      "expectedCode": "validation_failed"
+      "name": "list-duplicate-root-member",
+      "payload": "{\"site\":\"portal\",\"site\":\"attacker\",\"schemaName\":\"contact\"}"
     },
     {
-      "name": "delete-trailing-json-document",
       "capability": "forms.delete",
-      "payload": "{\"site\":\"portal\",\"schemaName\":\"contact\",\"id\":\"frm_fixture\"} {}",
+      "expectedCode": "validation_failed",
       "expectedStatus": 422,
-      "expectedCode": "validation_failed"
+      "name": "delete-trailing-json-document",
+      "payload": "{\"site\":\"portal\",\"schemaName\":\"contact\",\"id\":\"frm_fixture\"} {}"
     }
-  ]
+  ],
+  "version": 1
 }

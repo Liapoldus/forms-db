@@ -1,11 +1,15 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/Liapoldus/forms-db/contracts/v1/admin-surface-request.schema.json",
-  "title": "Запрос поверхности администратора forms-db v1",
-  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "required": ["version"],
   "properties": {
-    "version": { "const": 1 }
-  }
+    "version": {
+      "const": 1
+    }
+  },
+  "required": [
+    "version"
+  ],
+  "title": "Запрос поверхности администратора forms-db v1",
+  "type": "object"
 }

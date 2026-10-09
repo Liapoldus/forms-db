@@ -10,7 +10,7 @@ const errorsPath = `${root}/contracts/v1/delete-errors.json`;
 const vectorsPath = `${root}/contracts/v1/delete-negative-vectors.json`;
 
 function schema(path: string) {
-  return JSON.parse(readFileSync(path, "utf8"));
+  return JSON.parse(readFileSync(path, "utf8")) as object;
 }
 
 describe("forms.delete v1 contract", () => {

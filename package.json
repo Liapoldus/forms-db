@@ -2,11 +2,19 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "vitest run tests/contracts/admin-surface.test.ts tests/contracts/cursor-runtime.test.ts tests/contracts/delete.test.ts tests/contracts/list.test.ts tests/contracts/request-decoding.test.ts tests/contracts/runtime-limits.test.ts tests/contracts/settings.test.ts tests/contracts/strict-settings.test.ts tests/contracts/submit.test.ts tests/integration && node --test tests/contracts/cursor-secret-grants.test.ts"
+    "test": "vitest run tests/contracts tests/integration tests/pluginprotocol-module-version.test.ts --exclude tests/contracts/cursor-secret-grants.test.ts && node --test tests/contracts/cursor-secret-grants.test.ts",
+    "lint": "tsc --noEmit && eslint tests",
+    "generate": "go run ./tools/contracts",
+    "check:generated": "go run ./tools/contracts --check"
   },
   "devDependencies": {
+    "@eslint/js": "9.39.1",
+    "@types/node": "24.10.1",
     "ajv": "^8.20.0",
     "ajv-formats": "^3.0.1",
+    "eslint": "9.39.1",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.57.0",
     "vitest": "^4.0.18"
   }
 }

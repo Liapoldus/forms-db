@@ -1,18 +1,30 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/Liapoldus/forms-db/contracts/v1/admin-surface-response.schema.json",
-  "title": "Ответ поверхности администратора forms-db v1",
-  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": true,
-  "required": ["version", "plugin", "requiredCapabilities"],
   "properties": {
-    "version": { "const": 1 },
-    "plugin": { "type": "string", "minLength": 1 },
+    "plugin": {
+      "minLength": 1,
+      "type": "string"
+    },
     "requiredCapabilities": {
-      "type": "array",
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      },
       "minItems": 1,
-      "uniqueItems": true,
-      "items": { "type": "string", "minLength": 1 }
+      "type": "array",
+      "uniqueItems": true
+    },
+    "version": {
+      "const": 1
     }
-  }
+  },
+  "required": [
+    "version",
+    "plugin",
+    "requiredCapabilities"
+  ],
+  "title": "Ответ поверхности администратора forms-db v1",
+  "type": "object"
 }

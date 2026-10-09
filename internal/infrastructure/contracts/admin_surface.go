@@ -1,11 +1,8 @@
+// Package contracts adapts the product-owned admin surface.
 package contracts
 
-import (
-	"io/fs"
-
-	contractassets "github.com/Liapoldus/forms-db/contracts"
-)
+import contractassets "github.com/Liapoldus/forms-db/contracts"
 
 func AdminSurface() ([]byte, error) {
-	return fs.ReadFile(contractassets.Files(), "v1/admin-surface.json")
+	return contractassets.Document("v1/admin-surface.json")
 }

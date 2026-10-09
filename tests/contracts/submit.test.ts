@@ -1,14 +1,10 @@
+import { readContract } from '../helpers/contracts.ts';
 import Ajv2020 from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
-const root = fileURLToPath(new URL('../..', import.meta.url));
 
-function read(name: string) {
-  return JSON.parse(readFileSync(`${root}/contracts/v1/${name}`, 'utf8'));
-}
+const read = readContract;
 
 function compile(schema: object) {
   const ajv = new Ajv2020({ allErrors: true, strict: false });

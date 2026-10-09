@@ -1,8 +1,7 @@
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { readContract } from '../helpers/contracts.ts';
 import { describe, expect, it } from 'vitest';
 
-const contract = JSON.parse(readFileSync(resolve(import.meta.dirname, '../../contracts/v1/request-json-vectors.json'), 'utf8'));
+const contract = readContract('request-json-vectors.json');
 
 describe('forms-db request JSON contract', () => {
   it('defines duplicate-key and trailing-document failures as validation errors', () => {

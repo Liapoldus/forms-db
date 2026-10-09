@@ -1,5 +1,29 @@
 [
-  { "name": "forms-delete-missing-id", "schema": "contracts/v1/delete-request.schema.json", "payload": { "site": "portal", "schemaName": "contact" } },
-  { "name": "forms-delete-empty-site", "schema": "contracts/v1/delete-request.schema.json", "payload": { "site": "", "schemaName": "contact", "id": "frm_123" } },
-  { "name": "forms-delete-unknown-field", "schema": "contracts/v1/delete-request.schema.json", "payload": { "site": "portal", "schemaName": "contact", "id": "frm_123", "force": true } }
+  {
+    "name": "forms-delete-missing-id",
+    "payload": {
+      "schemaName": "contact",
+      "site": "portal"
+    },
+    "schema": "contracts/v1/delete-request.schema.json"
+  },
+  {
+    "name": "forms-delete-empty-site",
+    "payload": {
+      "id": "frm_123",
+      "schemaName": "contact",
+      "site": ""
+    },
+    "schema": "contracts/v1/delete-request.schema.json"
+  },
+  {
+    "name": "forms-delete-unknown-field",
+    "payload": {
+      "force": true,
+      "id": "frm_123",
+      "schemaName": "contact",
+      "site": "portal"
+    },
+    "schema": "contracts/v1/delete-request.schema.json"
+  }
 ]

@@ -18,7 +18,8 @@ import (
 	"github.com/Liapoldus/forms-db/internal/application"
 	"github.com/Liapoldus/forms-db/internal/domain/interfaces"
 	"github.com/Liapoldus/forms-db/internal/infrastructure/config"
-	"github.com/Liapoldus/forms-db/internal/infrastructure/storage"
+	"github.com/Liapoldus/forms-db/internal/infrastructure/storage/memory"
+	"github.com/Liapoldus/forms-db/internal/infrastructure/storage/sqlstore"
 	"github.com/Liapoldus/forms-db/internal/presentation/peerplugin"
 	"github.com/Liapoldus/forms-db/internal/presentation/restplugin"
 	sdkmodels "github.com/Liapoldus/plugin-sdk/domain/models"
@@ -45,7 +46,9 @@ func run(args []string) (runErr error) {
 	stage := "bootstrap"
 	defer func() {
 		if runErr != nil {
-			_, _ = io.WriteString(os.Stderr, "forms-db failed at "+stage+"\n")
+			if _, err := io.WriteString(os.Stderr, "forms-db failed at "+stage+"\n"); err != nil {
+				runErr = errors.Join(runErr, errors.New("write bootstrap diagnostic"))
+			}
 		}
 	}()
 	settings, err := parseOptions(args)
@@ -110,7 +113,7 @@ func run(args []string) (runErr error) {
 		return err
 	}
 	stage = "product-runtime"
-	active, err := restplugin.New(application.Service{Repository: storage.NewMemoryRepository()}, buildRepository, nil)
+	active, err := restplugin.New(application.Service{Repository: memory.New()}, buildRepository, nil)
 	if err != nil {
 		return err
 	}
@@ -151,7 +154,11 @@ func run(args []string) (runErr error) {
 	if err != nil {
 		return err
 	}
-	defer peerServer.Close()
+	defer func() {
+		if err := peerServer.Close(); err != nil && runErr == nil {
+			runErr = errors.New("close forms peer listener")
+		}
+	}()
 	stage = "serve"
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
@@ -185,9 +192,9 @@ func (callerAuthorizer) AuthorizeStream(peer.PeerIdentity, peer.Method) error {
 
 func buildRepository(ctx context.Context, settings config.Settings) (interfaces.Repository, error) {
 	if settings.Driver == "memory" {
-		return storage.NewMemoryRepository(), nil
+		return memory.New(), nil
 	}
-	repository, err := storage.NewRepository(ctx, settings.Driver, string(settings.DSN), settings.TablePrefix, settings.Schemas)
+	repository, err := sqlstore.NewRepository(ctx, settings.Driver, string(settings.DSN), settings.TablePrefix, settings.Schemas)
 	if err != nil {
 		return nil, err
 	}

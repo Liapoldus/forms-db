@@ -1,3 +1,4 @@
+// Package models defines form submission values.
 package models
 
 type Submission struct {

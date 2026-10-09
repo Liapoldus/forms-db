@@ -3,7 +3,6 @@ package contracts
 import (
 	"encoding/json"
 	"errors"
-	"io/fs"
 	"sync"
 
 	"github.com/santhosh-tekuri/jsonschema/v6"
@@ -61,7 +60,7 @@ func ValidateSettings(contents []byte) error {
 }
 
 func pluginDocument(path string) ([]byte, error) {
-	contents, err := fs.ReadFile(assets, path)
+	contents, err := Document(path)
 	if err != nil || !json.Valid(contents) {
 		return nil, ErrInvalidPluginContract
 	}

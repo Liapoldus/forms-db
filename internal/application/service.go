@@ -1,3 +1,4 @@
+// Package application coordinates form submission operations.
 package application
 
 import (

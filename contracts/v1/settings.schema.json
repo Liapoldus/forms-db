@@ -1,24 +1,72 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://liapoldus.github.io/plugins/forms-db/settings/v1/schema.json",
-  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "required": ["driver", "schemas"],
-  "properties": {
-    "driver": { "type": "string", "enum": ["sqlite", "mysql", "postgres", "memory"] },
-    "dsn": { "type": "string", "minLength": 1, "maxLength": 1024, "description": "Opaque secret reference; never a connection string." },
-    "cursorSecretRef": { "type": "string", "minLength": 1, "maxLength": 1024, "description": "Opaque reference used only for per-call cursor signing grants." },
-    "tablePrefix": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,31}$" },
-    "schemas": {
-      "type": "object",
-      "additionalProperties": { "type": "object" }
-    }
-  },
   "allOf": [
     {
-      "if": { "properties": { "driver": { "const": "memory" } }, "required": ["driver"] },
-      "then": { "properties": { "dsn": false } },
-      "else": { "properties": { "dsn": { "type": "string" } }, "required": ["dsn"] }
+      "else": {
+        "properties": {
+          "dsn": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "dsn"
+        ]
+      },
+      "if": {
+        "properties": {
+          "driver": {
+            "const": "memory"
+          }
+        },
+        "required": [
+          "driver"
+        ]
+      },
+      "then": {
+        "properties": {
+          "dsn": false
+        }
+      }
     }
-  ]
+  ],
+  "properties": {
+    "cursorSecretRef": {
+      "description": "Opaque reference used only for per-call cursor signing grants.",
+      "maxLength": 1024,
+      "minLength": 1,
+      "type": "string"
+    },
+    "driver": {
+      "enum": [
+        "sqlite",
+        "mysql",
+        "postgres",
+        "memory"
+      ],
+      "type": "string"
+    },
+    "dsn": {
+      "description": "Opaque secret reference; never a connection string.",
+      "maxLength": 1024,
+      "minLength": 1,
+      "type": "string"
+    },
+    "schemas": {
+      "additionalProperties": {
+        "type": "object"
+      },
+      "type": "object"
+    },
+    "tablePrefix": {
+      "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,31}$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "driver",
+    "schemas"
+  ],
+  "type": "object"
 }

@@ -1,32 +1,55 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/Liapoldus/forms-db/contracts/v1/list-response.schema.json",
-  "title": "Ответ forms.list v1",
-  "description": "Страница отправок. Каждый элемент соответствует существующей сериализации Submission; nextCursor равен null, если следующей страницы нет.",
-  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "required": ["items", "nextCursor"],
+  "description": "Страница отправок. Каждый элемент соответствует существующей сериализации Submission; nextCursor равен null, если следующей страницы нет.",
   "properties": {
     "items": {
-      "type": "array",
       "items": {
-        "type": "object",
         "additionalProperties": false,
-        "required": ["id", "createdAt", "site", "schemaName", "data"],
         "properties": {
-          "id": { "type": "string" },
-          "createdAt": { "type": "string" },
-          "site": { "type": "string" },
-          "schemaName": { "type": "string" },
-          "data": { "type": "object" }
-        }
-      }
+          "createdAt": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object"
+          },
+          "id": {
+            "type": "string"
+          },
+          "schemaName": {
+            "type": "string"
+          },
+          "site": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "createdAt",
+          "site",
+          "schemaName",
+          "data"
+        ],
+        "type": "object"
+      },
+      "type": "array"
     },
     "nextCursor": {
       "oneOf": [
-        { "type": "string" },
-        { "type": "null" }
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
       ]
     }
-  }
+  },
+  "required": [
+    "items",
+    "nextCursor"
+  ],
+  "title": "Ответ forms.list v1",
+  "type": "object"
 }

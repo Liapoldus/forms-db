@@ -1,5 +1,103 @@
 # TODO — forms-db v1
 
+## SQL/constants cleanup — 2026-10-09
+
+Внутренние storage definitions перенесены из embedded
+`internal/infrastructure/storage/contracts/storage.json` в typed Go constants
+`storage_contract.go`; SQL templates/placeholders принадлежат
+`sql_statements.go` того же пакета. Consumer audit охватил SQL/memory repositories,
+генератор submission ID, TypeScript resource-limit test, build и документацию.
+После миграции всех найденных потребителей удалены JSON asset, embed variable,
+JSON loader/validation и per-repository contract field. Отдельных query/SQL files
+в репозитории нет. Сохранены 12 исходных JSON values и 21 SQL template/placeholder,
+включая существующий startup-lock WIP; новые product features не добавлялись.
+
+Native `tests/unit/storage_definitions_test.go` проверяет ID format, default/max
+list bounds для memory/SQLite, filtered keyset scan за пределами 101 строки,
+durable SQLite names/index и sanitized errors. Existing native/child-process
+tests продолжают проверять schema transaction rollback, scope, cursor и Reload.
+
+Проверено с `GOWORK=off GOTOOLCHAIN=go1.26.0`: `go test ./... -count=1`,
+`go build ./...`, `go vet ./...`,
+`go test -race ./tests/unit ./tests/integration -count=1` — PASS.
+`npm test -- --run --maxWorkers=1` — PASS: 22 Vitest files passed / 2 skipped,
+35 tests passed / 9 skipped; Node cursor-secret tests 2/2.
+`git diff --check` — PASS.
+
+OPEN: `go test ./tests/integration -run 'Test(PostgreSQL|MySQL|MariaDB)RepositoryContract' -v -count=1`
+пропускает все три backend gates без `FORMS_DB_{POSTGRES,MYSQL,MARIADB}_DSN`.
+Девять внешних SQL child-process cases также skipped; migration-permission
+checks требуют соответствующих `FORMS_DB_*_ADMIN_DSN`. Исторические SQL matrix
+results ниже не являются повторной проверкой этого cleanup. Core/SDK release
+cohort gates этим срезом не закрываются. Commit/push не выполнялись.
+
+## Повторная проверка текущего WIP — 2026-10-06
+
+PostgreSQL 16 red/green check обнаружил, что `sql-multi-replica-cursor.test.ts`
+не проверял новый результат `cursorContinuedAcrossMixedGenerations`, уже
+возвращаемый child-process fixture. Исправлено ожидаемое сообщение теста;
+PostgreSQL cursor/fencing/mixed-generation child-process сценарий прошёл 1/1.
+Полный локальный `npm test -- --run --maxWorkers=1` прошёл: 22 Vitest files,
+35 passed / 9 skipped из-за отсутствующих SQL DSN; отдельные Node cursor tests
+2/2. `GOWORK=off GOTOOLCHAIN=go1.26.0 go test ./...`, `go build ./...`,
+`go vet ./...` и `git diff --check` прошли. В этом повторе MySQL и MariaDB
+контейнеры не поднимались; их прежние результаты выше не перепроверялись.
+
+## Историческая SQL multi-replica проверка — 2026-10-06
+
+Повторная проверка текущего worktree 2026-10-06: focused
+`sql-multi-replica-cursor` + `sql-multi-replica-startup` прошли 7/7 на
+PostgreSQL 16, MySQL 8.0 и MariaDB 11.4. Полный `npm test -- --run
+--maxWorkers=1` прошёл (23 Vitest files / 43 tests; отдельные Node cursor
+tests 2/2); `GOWORK=off GOTOOLCHAIN=go1.26.0 go test ./...`, `go build
+./...`, `go vet ./...` и `git diff --check` прошли. Использовались три
+временных loopback-only Docker container с точными именами
+`liapoldus-v2-sql-20261006-{pg,mysql,maria}`; после проверки контейнеры и
+созданные ими anonymous data volumes удалены. Это повторяет DB conformance,
+но не закрывает Plugin SDK/Core cohort compatibility gate ниже.
+
+Исполняемый `tests/integration/sql-multi-replica-cursor.test.ts` прошёл на
+PostgreSQL 16, MySQL 8.0 и MariaDB 11.4 (3/3) против отдельных временных Docker
+containers. В каждом случае два настоящих forms-db child process использовали
+общее SQL-хранилище: cursor первой replica продолжился на второй, а Reload
+одной replica не изменил active generation другой. Полный `npm test` с теми же
+DSN прошёл (22 файла / 39 Vitest tests и 2 Node tests); `GOWORK=off go test
+./...`, `go build ./...`, `go vet ./...` и `git diff --check` также прошли.
+Это подтверждает product-side SQL/cursor/fencing сценарий, но не SDK/Core
+registration, lease или cohort rollout barrier; соответствующие пункты v2
+остаются открытыми.
+
+Параллельный cold-start двух независимых реплик проверяется в
+`tests/integration/sql-multi-replica-startup.test.ts`: 12 раундов одновременно
+инициализируют одинаковую схему и подтверждают read-after-write через соседний
+process. Первый красный прогон воспроизвёл PostgreSQL catalog race на
+`CREATE TABLE IF NOT EXISTS`. Теперь обе реплики сериализуют только startup DDL
+DB-native advisory lock-ом на table prefix; runtime SQL не блокируется этой
+защёлкой. Focused startup + cursor suite прошёл 7/7 на SQLite, PostgreSQL 16,
+MySQL 8.0 и MariaDB 11.4, запущенных во временных контейнерах; SQLite fixture
+также прошёл `go run -race`. Полный `npm test` прошёл: 21 файл / 34 теста,
+9 SQL-backed tests пропущены без постоянных DSN; Node contract tests 2/2.
+`GOWORK=off go test ./...`, `go build ./...`, `go vet ./...` и `git diff
+--check` прошли. Этот тест проверяет cold start, но не release compatibility
+или canary authorization.
+
+Generic contract claims закреплены в локальном SDK v2 WIP: registration
+экспортирует SemVer/digest `advertisedContracts` и `acceptedContracts` без
+product-specific DTO; `application.ReleaseCohortCompatible` требует взаимного
+acceptance claims между разными release digest и отказывает без evidence. Core
+проверяет этот результат до promotion config generation. SDK `v1.0.0` и Core
+опубликованного релиза всё ещё не содержат этот v2 контракт, поэтому изменения
+пока нельзя считать интегрированными или публиковать.
+
+Открыты: Core должен доказать на полном operation path, что отказ compatibility
+gate оставляет active/previous pointers неизменными; регистрация новой
+incarnation должна сериализоваться с promotion; release rollout/traffic cohort
+gate ещё не завершён. После согласования и публикации SDK/Core contract forms-db
+объявляет собственные settings-schema, durable SQL schema и peer API claims и
+добавляет совместимые/несовместимые release fixtures с SQL matrix для
+PostgreSQL, MySQL и MariaDB. forms-db не создаёт параллельный registration DTO,
+endpoint или локальную имитацию Core fence.
+
 ## Проверка публикации — 2026-10-05
 
 Коммит `f6dac5b` опубликован в `origin/main`; hosted Ubuntu verify прошёл.
@@ -98,8 +196,7 @@ cross-repository CI. Linux runtime, hosted CI и release/version gate остаю
 открыты. Production readiness пока не заявляется.
 
 Этот файл содержит только задачи forms-db plugin. Единая граница версии и
-межрепозиторный план: [`tasks/README.md`](../../tasks/README.md) и единый
-[v1 prompt](../../tasks/CORE_V1_CODEX_SOL.md). Product settings, capabilities,
+межрепозиторный план: [`tasks/README.md`](../../tasks/README.md). Product settings, capabilities,
 storage semantics, errors и vectors принадлежат этому
 репозиторию; lifecycle — [Plugin SDK](../../plugin-sdk/), peer transport —
 [`pluginprotocol`](../../pluginprotocol/).
@@ -121,7 +218,6 @@ storage semantics, errors и vectors принадлежат этому
   metadata/config bytes.
 - Plugin settings, form schemas, validation, errors, query/filter/pagination,
   cursor format, CRUD actions и Admin Surface — только contracts этого repo.
-- Constructor и `react-lib` заморожены; не менять их исходники/зависимости/tests.
 
 ## Зафиксированные product semantics
 
@@ -440,7 +536,102 @@ storage semantics, errors и vectors принадлежат этому
 
 ## Не входит в v1
 
-CAPTCHA, Identity/OIDC/OAuth, TUF и plugin install/update, управляемые Core
-processes, Docker/Compose/Swarm/Kubernetes, Constructor/React UI changes,
+CAPTCHA, Identity/OIDC/OAuth, Core-managed plugin install/update или process
+management, Docker/Compose/Swarm/Kubernetes,
 protocol-defined forms methods, Core-specific storage/backends. Эти функции не
 добавлять в contracts, schema, dependencies или binary.
+
+## V3 — replica/SQL compatibility и website/content
+
+В v2 `plugins/forms-db/` не изменяется: текущая v1 simple-forms функция служит
+только regression baseline, а generic Core/SDK rollout проверяется на fixtures.
+Нижеследующие ранее записанные v2 задачи перенесены в v3. Выполненные проверки
+сохранены как технические evidence; они не подтверждают поддержку multi-host
+storage, release-cohort compatibility или production readiness.
+
+- [ ] Перейти на Plugin SDK self-registration/lease и versioned peer-directory;
+  объявлять SemVer/digest, совместимость config schema, storage schema и
+  product peer contracts. Gate: новая incarnation, loss/return replica,
+  Core restart и двухкогортный rolling/canary без replay.
+- [x] Проверить выдачу cursor между двумя независимыми child-process replicas
+  на общем MySQL, MariaDB и PostgreSQL backend; проверить независимый generation
+  fence при изменении активной формы. Исполняемый gate:
+  `tests/integration/sql-multi-replica-cursor.test.ts`.
+- [x] Проверить одновременный cold-start двух процессов на одной схеме и
+  read-after-write между ними на SQLite, PostgreSQL, MySQL и MariaDB; 12
+  параллельных открытий на backend проходят в
+  `tests/integration/sql-multi-replica-startup.test.ts`.
+- [x] `tests/integration/mixed-generation-cursor.test.ts` проверяет настоящий
+  child-process сценарий: подписанный cursor продолжается на обеих SQL replicas
+  после Reload только первой; вторая остаётся на предыдущем generation.
+  Для того же fixture вручную прогнаны отдельные temporary MySQL 8.0, MariaDB
+  11.4 и PostgreSQL 16 services; каждый child-process run подтвердил
+  `firstReplicaAdvanced`, `secondReplicaRemainedOnPreviousGeneration`,
+  `cursorContinuedAcrossMixedGenerations` и process generation fence. Команда:
+  `FORMS_MULTI_REPLICA_SQL_DRIVER=<mysql|postgres> FORMS_MULTI_REPLICA_SQL_DSN=<test-dsn> GOWORK=off GOTOOLCHAIN=go1.26.0 go run ./tests/fixtures/multi-replica-cursor`.
+  Это подтверждает forms-db cursor semantics в смешанных generations, но не
+  release-cohort compatibility или Core activation barrier. Эти локальные SQL
+  services удалены после теста; DSN и test credentials не сохранялись.
+- [ ] После публикации общего SDK/Core owner contract объявлять product-owned
+  ranges для settings schema, durable SQL schema и peer contract; до разрешения
+  canary Core обязан сверять compatibility всех живых release cohorts и
+  блокировать несовместимый rollout. Текущий точный контрактный blocker и
+  требуемые поля описаны в начале этого файла; forms-db не создаёт конкурирующую
+  регистрацию и не имитирует Core fence.
+- [ ] Потреблять только явные peer links и transport endpoint, выбранный SDK
+  resolver; не переносить Core policy в формы. Gate: same-placement socket,
+  remote TCP/QUIC и отсутствие скрытого fallback.
+
+Проверку release artifacts, установку и плановые обновления во всех версиях
+выполняет оператор выбранными средствами. Core не
+управляет workload или количеством replicas и не получает provider API.
+
+### Website и редактирование контента
+
+Целевая идея и границы владельцев описаны в [документации forms-db](docs/site/plugins/forms-db.md#направление-развития-в-v3-website-и-редактор-содержимого)
+и агрегированы в [Core roadmap](https://liapoldus.github.io/core/architecture/v1-migration-roadmap#v3-forms-db-website-и-управление-контентом). Это отдельная
+работа после v2 rollout; не добавлять её в v1/v2 contracts, acceptance, зависимости
+или binary.
+
+- [ ] Спроектировать forms-db как plugin-owned website/content service поверх
+  текущего storage ownership; определить связь content model с существующими
+  forms и site identifiers.
+- [ ] Спроектировать административный UI и отдельный endpoint/port: bind
+  address, TLS/mTLS или иная внешняя граница, сетевые ACL, публикация за Server
+  plugin или прямой listener, защита от случайной публичной экспозиции.
+- [ ] Определить principal/role lifecycle, роли и permissions, provisioning,
+  credential/session model, recovery и audit; не считать v1
+  v1 `platform-admin`/Admin Surface готовым решением.
+- [ ] Выбрать декларативный источник/формат, из которого генерируется admin UI;
+  ограничить отображаемые и изменяемые поля явной product schema/metadata,
+  определить версионирование и безопасный fallback при несовместимых схемах.
+- [ ] Определить формат сайта и разделение публичных и административных
+  маршрутов; решить, кто обслуживает публичный сайт — Server plugin или
+  forms-db — и как передаются immutable releases, `current`/`previous` и
+  rollback.
+- [ ] Описать versioned settings, content/action contracts, schema evolution,
+  migrations и concurrency/CAS semantics; Core остаётся plugin-agnostic и
+  принимает только generic settings schema.
+- [ ] Определить lifecycle сохранения/публикации контента, backup/restore,
+  retention, limits, failure recovery и поведение при недоступности storage.
+- [ ] Добавить security threat model, abuse/resource limits, redaction/audit
+  правила и негативные conformance scenarios до реализации.
+- [ ] Проверить сквозной путь Core → Plugin SDK → forms-db и интеграцию с Server
+  без изменения `pluginprotocol` в сторону product-specific методов.
+
+### Решения, требуемые до реализации v3
+
+- [ ] Подтвердить, является ли website/content режим расширением `forms-db` или
+  отдельным plugin product; не смешивать его с отправками форм без явного
+  ownership contract.
+- [ ] Выбрать владельца публичного HTTP listener-а и site release lifecycle:
+  Server plugin, forms-db либо согласованный split между ними.
+- [ ] Уточнить, означает ли «отдельный порт» отдельный listener самого forms-db
+  или отдельный listener Server plugin, и какие сетевые источники могут его
+  достигать.
+- [ ] Выбрать authN/authZ модель админ-панели, способ первичного provisioning и
+  требуемые роли/права.
+- [ ] Уточнить, какие виды контента входят в v3 и должны ли формы/отправки
+  использовать ту же content DB и модель разрешений.
+- [ ] Утвердить обязательные storage backends для website content и требования
+  к миграциям/совместному использованию DB с текущими формами.

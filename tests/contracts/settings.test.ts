@@ -1,11 +1,9 @@
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { readContract } from '../helpers/contracts.ts';
 import Ajv2020 from 'ajv/dist/2020.js';
 import { describe, expect, it } from 'vitest';
 
-const root = resolve(import.meta.dirname, '../..');
-const schema = JSON.parse(readFileSync(resolve(root, 'contracts/v1/settings.schema.json'), 'utf8'));
-const manifest = JSON.parse(readFileSync(resolve(root, 'contracts/v1/plugin.json'), 'utf8'));
+const schema = readContract('settings.schema.json');
+const manifest = readContract('plugin.json');
 const validate = new Ajv2020({ strict: true }).compile(schema);
 
 describe('forms-db SDK settings contract', () => {

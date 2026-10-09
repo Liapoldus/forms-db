@@ -1,3 +1,4 @@
+import { parseContract } from '../helpers/contracts.ts';
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import Ajv2020 from "ajv/dist/2020.js";
@@ -8,7 +9,7 @@ const root = fileURLToPath(new URL("../..", import.meta.url));
 describe("forms-db-owned admin surface contract", () => {
   it("declares only product capabilities; common settings belong to Core API", async () => {
     const surfaceSource = await readFile(`${root}/contracts/v1/admin-surface.json`, "utf8");
-    const surface = JSON.parse(surfaceSource);
+    const surface = parseContract('admin-surface.json', surfaceSource);
     expect(surface.requiredCapabilities).toEqual(["forms.list", "forms.delete"]);
     expect(surface.pages.map((page: { id: string }) => page.id)).toEqual(["submissions"]);
     expect(surfaceSource).not.toContain("ConfigApply");
@@ -21,10 +22,11 @@ describe("forms-db-owned admin surface contract", () => {
       readFile(`${root}/contracts/v1/list-request.schema.json`, "utf8"),
       readFile(`${root}/contracts/v1/delete-request.schema.json`, "utf8"),
     ]);
-    const surface = JSON.parse(surfaceSource);
-    const listSchema = JSON.parse(listSchemaSource);
-    const deleteSchema = JSON.parse(deleteSchemaSource);
+    const surface = parseContract('admin-surface.json', surfaceSource);
+    const listSchema = parseContract('list-request.schema.json', listSchemaSource);
+    const deleteSchema = parseContract('delete-request.schema.json', deleteSchemaSource);
     const submissions = surface.pages.find((page: { id: string }) => page.id === "submissions");
+    if (!submissions) throw new Error("missing submissions contract entry");
 
     expect(submissions.query).toEqual({
       id: "query",
@@ -37,7 +39,10 @@ describe("forms-db-owned admin surface contract", () => {
       },
     });
     const records = submissions.sections.find((section: { id: string }) => section.id === "records");
+    if (!records) throw new Error("missing records contract entry");
+    if (!records.actions) throw new Error("records actions missing");
     const action = records.actions.find((candidate: { id: string }) => candidate.id === "delete");
+    if (!action) throw new Error("missing action contract entry");
     expect(action.capability).toBe("forms.delete");
     expect(action.inputSchema).toEqual({
       type: deleteSchema.type,
@@ -50,8 +55,9 @@ describe("forms-db-owned admin surface contract", () => {
 
   it("requires read and write permissions for the page that exposes delete actions", async () => {
     const surfaceSource = await readFile(`${root}/contracts/v1/admin-surface.json`, "utf8");
-    const surface = JSON.parse(surfaceSource);
+    const surface = parseContract('admin-surface.json', surfaceSource);
     const submissions = surface.pages.find((page: { id: string }) => page.id === "submissions");
+    if (!submissions) throw new Error("missing submissions contract entry");
 
     expect(submissions.permissions).toEqual(["plugins.forms-db.read", "plugins.forms-db.write"]);
   });
@@ -62,16 +68,20 @@ describe("forms-db-owned admin surface contract", () => {
       readFile(`${root}/contracts/v1/delete-request.schema.json`, "utf8"),
       readFile(`${root}/contracts/v1/admin-surface-vectors.json`, "utf8"),
     ]);
-    const surface = JSON.parse(surfaceSource);
-    const deleteRequest = JSON.parse(requestSource);
-    const vectors = JSON.parse(vectorsSource) as Array<{
+    const surface = parseContract('admin-surface.json', surfaceSource);
+    const deleteRequest = parseContract('delete-request.schema.json', requestSource);
+    const vectors = parseContract('admin-surface-vectors.json', vectorsSource) as Array<{
       name: string;
       selectedRow: Record<string, unknown>;
       expectedPayload: Record<string, unknown>;
     }>;
     const submissions = surface.pages.find((page: { id: string }) => page.id === "submissions");
+    if (!submissions) throw new Error("missing submissions contract entry");
     const records = submissions.sections.find((section: { id: string }) => section.id === "records");
+    if (!records) throw new Error("missing records contract entry");
+    if (!records.actions) throw new Error("records actions missing");
     const action = records.actions.find((candidate: { id: string }) => candidate.id === "delete");
+    if (!action) throw new Error("missing action contract entry");
     const inputSchema = {
       type: deleteRequest.type,
       properties: deleteRequest.properties,
@@ -83,7 +93,7 @@ describe("forms-db-owned admin surface contract", () => {
     expect(action.inputSchema).toEqual(inputSchema);
     expect(action.rowInput).toEqual({ site: "site", schemaName: "schemaName", id: "id" });
 
-    const columns = records.columns as string[];
+    const columns = records.columns;
     const rowInput = action.rowInput as Record<string, string>;
     const validateActionInput = new Ajv2020({ allErrors: true, strict: false }).compile(action.inputSchema);
     const validateDeleteRequest = new Ajv2020({ allErrors: true, strict: false }).compile(deleteRequest);

@@ -1,3 +1,4 @@
+import { parseReport, readContract } from '../helpers/contracts.ts';
 import { describe, expect, it } from "vitest";
 import Ajv2020 from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
@@ -7,18 +8,17 @@ import { fileURLToPath } from "node:url";
 const root = fileURLToPath(new URL("../..", import.meta.url));
 const requestPath = `${root}/contracts/v1/list-request.schema.json`;
 const responsePath = `${root}/contracts/v1/list-response.schema.json`;
-const errorsPath = `${root}/contracts/v1/list-errors.json`;
 
 function compile(path: string) {
   const ajv = new Ajv2020({ allErrors: true, strict: false });
   addFormats(ajv);
-  return ajv.compile(JSON.parse(readFileSync(path, "utf8")));
+  return ajv.compile(parseReport(readFileSync(path, "utf8")) as object);
 }
 
 describe("forms.list v1 contract", () => {
   it("validates the documented request fields and optional filter/cursor", () => {
     const validate = compile(requestPath);
-    const schema = JSON.parse(readFileSync(requestPath, "utf8"));
+	const schema = readContract('list-request.schema.json');
 
     expect(schema.properties.limit).toMatchObject({ minimum: 1, maximum: 100, default: 50 });
     expect(validate({ site: "portal", schemaName: "contact" })).toBe(true);
@@ -55,7 +55,7 @@ describe("forms.list v1 contract", () => {
   });
 
   it("preserves the documented forms.list error mapping", () => {
-    const errors = JSON.parse(readFileSync(errorsPath, "utf8"));
+	const errors = readContract('list-errors.json');
     expect(errors).toEqual({
       $id: "https://github.com/Liapoldus/forms-db/contracts/v1/list-errors.json",
       capability: "forms.list",

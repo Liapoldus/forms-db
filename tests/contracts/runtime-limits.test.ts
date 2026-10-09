@@ -1,10 +1,10 @@
+import { readContract, parseReport } from '../helpers/contracts.ts';
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const root = resolve(import.meta.dirname, '../..');
-const limits = JSON.parse(readFileSync(resolve(root, 'contracts/v1/runtime-limits.json'), 'utf8'));
+const limits = readContract('runtime-limits.json');
 
 describe('forms-db v1 resource limits', () => {
   it('publishes the approved settings, schema, submission, and database bounds', () => {
@@ -20,26 +20,26 @@ describe('forms-db v1 resource limits', () => {
   });
 
   it('keeps list page and cursor boundaries aligned with their owner contracts', () => {
-    const listSchema = JSON.parse(readFileSync(resolve(root, 'contracts/v1/list-request.schema.json'), 'utf8'));
-    const cursor = JSON.parse(readFileSync(resolve(root, 'internal/infrastructure/security/contracts/cursor.json'), 'utf8'));
-    const storage = JSON.parse(readFileSync(resolve(root, 'internal/infrastructure/storage/contracts/storage.json'), 'utf8'));
+    const listSchema = readContract('list-request.schema.json');
+    const cursor = readContract('cursor.json');
 
     expect(listSchema.properties.limit.maximum).toBe(100);
     expect(cursor.maxPageSize).toBe(100);
     expect(listSchema.properties.cursor.maxLength).toBe(4096);
     expect(cursor.maxTokenBytes).toBe(4096);
-    expect(storage.maxListRows).toBe(101);
+    // Native tests/unit/storage_definitions_test.go verifies the 101-row
+    // lookahead bound against memory and SQLite repositories.
   });
 
   it('enforces the byte, schema-depth, field-count and submission limits in runtime code', () => {
-    const output = execFileSync('go', ['run', './tests/fixtures/runtime-limits'], {
+    const output = execFileSync('go', ['run', './tests/fixtures/validation/limits'], {
       cwd: root,
       encoding: 'utf8',
       env: { ...process.env, GOWORK: 'off', GOTOOLCHAIN: 'go1.26.0' },
       timeout: 120_000,
     });
 
-    expect(JSON.parse(output)).toEqual({
+    expect(parseReport(output)).toEqual({
       settingsBytesAtLimitAccepted: true,
       settingsBytesOverLimitRejected: true,
       manifestSettingsAtLimitAccepted: true,

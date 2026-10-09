@@ -1,14 +1,27 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/Liapoldus/forms-db/contracts/v1/delete-request.schema.json",
-  "title": "Запрос forms.delete v1",
-  "description": "Удаляет одну отправку формы из точного scope site/schemaName.",
-  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "required": ["site", "schemaName", "id"],
+  "description": "Удаляет одну отправку формы из точного scope site/schemaName.",
   "properties": {
-    "site": { "type": "string", "minLength": 1 },
-    "schemaName": { "type": "string", "minLength": 1 },
-    "id": { "type": "string", "minLength": 1 }
-  }
+    "id": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "schemaName": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "site": {
+      "minLength": 1,
+      "type": "string"
+    }
+  },
+  "required": [
+    "site",
+    "schemaName",
+    "id"
+  ],
+  "title": "Запрос forms.delete v1",
+  "type": "object"
 }

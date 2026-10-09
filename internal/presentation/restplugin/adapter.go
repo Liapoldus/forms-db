@@ -1,3 +1,4 @@
+// Package restplugin adapts the Plugin SDK lifecycle to forms-db.
 package restplugin
 
 import (
@@ -128,7 +129,7 @@ func (adapter *Adapter) Apply(ctx context.Context, incoming sdkmodels.Configurat
 	}
 	if ctx.Err() != nil {
 		if closer, ok := candidate.(io.Closer); ok {
-			_ = closer.Close()
+			_ = closer.Close() //nolint:errcheck // A canceled candidate is discarded; cleanup cannot make it publishable.
 		}
 		return ErrStorageUnavailable
 	}
@@ -142,7 +143,7 @@ func (adapter *Adapter) Apply(ctx context.Context, incoming sdkmodels.Configurat
 	adapter.mu.Unlock()
 	if previous != candidate {
 		if closer, ok := previous.(io.Closer); ok {
-			_ = closer.Close()
+			_ = closer.Close() //nolint:errcheck // Active state has switched; a retired repository close failure cannot roll it back.
 		}
 	}
 	return nil
