@@ -15,10 +15,10 @@ import (
 	"github.com/Liapoldus/forms-db/internal/infrastructure/config"
 	"github.com/Liapoldus/forms-db/internal/infrastructure/storage/memory"
 	"github.com/Liapoldus/forms-db/internal/presentation/restplugin"
-	sdkinterfaces "github.com/Liapoldus/plugin-sdk/domain/interfaces"
-	sdkmodels "github.com/Liapoldus/plugin-sdk/domain/models"
-	sdkinfra "github.com/Liapoldus/plugin-sdk/infrastructure"
-	sdkpresentation "github.com/Liapoldus/plugin-sdk/presentation"
+	sdkinterfaces "github.com/Liapoldus/plugin-sdk/v2/domain/interfaces"
+	sdkmodels "github.com/Liapoldus/plugin-sdk/v2/domain/models"
+	sdkinfra "github.com/Liapoldus/plugin-sdk/v2/infrastructure"
+	sdkpresentation "github.com/Liapoldus/plugin-sdk/v2/presentation"
 )
 
 type source struct {

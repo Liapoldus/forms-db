@@ -14,6 +14,6 @@ describe('forms-db v1 lifecycle ownership', () => {
     })).not.toThrow();
 
     const module = readFileSync(resolve(repository, 'go.mod'), 'utf8');
-    expect(module).toContain('github.com/Liapoldus/plugin-sdk');
+    expect(module).toContain('github.com/Liapoldus/plugin-sdk/v2');
   }, 120_000);
 });

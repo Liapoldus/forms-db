@@ -8,7 +8,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/Liapoldus/pluginprotocol/v2/presentation/peer"
+	"github.com/Liapoldus/pluginprotocol/v3/presentation/peer"
 )
 
 func requestPayload(payload []byte) ([]byte, error) {

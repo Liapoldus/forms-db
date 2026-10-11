@@ -7,11 +7,11 @@ import (
 	"net/http"
 	"time"
 
-	sdkapp "github.com/Liapoldus/plugin-sdk/application"
-	sdkinterfaces "github.com/Liapoldus/plugin-sdk/domain/interfaces"
-	sdkmodels "github.com/Liapoldus/plugin-sdk/domain/models"
-	sdkinfra "github.com/Liapoldus/plugin-sdk/infrastructure"
-	sdkpresentation "github.com/Liapoldus/plugin-sdk/presentation"
+	sdkapp "github.com/Liapoldus/plugin-sdk/v2/application"
+	sdkinterfaces "github.com/Liapoldus/plugin-sdk/v2/domain/interfaces"
+	sdkmodels "github.com/Liapoldus/plugin-sdk/v2/domain/models"
+	sdkinfra "github.com/Liapoldus/plugin-sdk/v2/infrastructure"
+	sdkpresentation "github.com/Liapoldus/plugin-sdk/v2/presentation"
 )
 
 type LifecycleOptions struct {

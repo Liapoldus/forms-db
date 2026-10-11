@@ -11,7 +11,7 @@ import (
 	"github.com/Liapoldus/forms-db/internal/application"
 	"github.com/Liapoldus/forms-db/internal/domain/interfaces"
 	"github.com/Liapoldus/forms-db/internal/infrastructure/config"
-	sdkmodels "github.com/Liapoldus/plugin-sdk/domain/models"
+	sdkmodels "github.com/Liapoldus/plugin-sdk/v2/domain/models"
 )
 
 var ErrInvalidSettings = errors.New("invalid forms-db settings")

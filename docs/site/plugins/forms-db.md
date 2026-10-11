@@ -10,6 +10,11 @@ Core↔plugin configuration lifecycle обслуживает Plugin SDK REST; pl
 settings и их schema остаются контрактом forms-db. `pluginprotocol` не
 обслуживает Core lifecycle.
 
+Бинарник forms-db использует SDK `HandlerSet` без product-specific lifecycle
+handlers. Универсальные `GET /healthz` и `GET /metrics` полностью принадлежат
+Plugin SDK и имеют ту же семантику, что у Server и Echo; forms-db не объявляет
+собственные маршруты или response shapes для них.
+
 ## Capabilities
 
 | Capability | Тип | Назначение |

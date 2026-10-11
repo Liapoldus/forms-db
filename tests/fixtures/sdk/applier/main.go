@@ -14,7 +14,7 @@ import (
 	"github.com/Liapoldus/forms-db/internal/infrastructure/storage/memory"
 	"github.com/Liapoldus/forms-db/internal/infrastructure/storage/sqlstore"
 	"github.com/Liapoldus/forms-db/internal/presentation/restplugin"
-	sdkmodels "github.com/Liapoldus/plugin-sdk/domain/models"
+	sdkmodels "github.com/Liapoldus/plugin-sdk/v2/domain/models"
 )
 
 type secretSource struct {

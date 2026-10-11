@@ -29,9 +29,9 @@ import (
 	"syscall"
 	"time"
 
-	sdkmodels "github.com/Liapoldus/plugin-sdk/domain/models"
-	sdkinfra "github.com/Liapoldus/plugin-sdk/infrastructure"
-	"github.com/Liapoldus/pluginprotocol/v2/presentation/peer"
+	sdkmodels "github.com/Liapoldus/plugin-sdk/v2/domain/models"
+	sdkinfra "github.com/Liapoldus/plugin-sdk/v2/infrastructure"
+	"github.com/Liapoldus/pluginprotocol/v3/presentation/peer"
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/jackc/pgx/v5/stdlib"
 )

@@ -22,9 +22,9 @@ import (
 	"github.com/Liapoldus/forms-db/internal/infrastructure/storage/sqlstore"
 	"github.com/Liapoldus/forms-db/internal/presentation/peerplugin"
 	"github.com/Liapoldus/forms-db/internal/presentation/restplugin"
-	sdkmodels "github.com/Liapoldus/plugin-sdk/domain/models"
-	sdkinfra "github.com/Liapoldus/plugin-sdk/infrastructure"
-	"github.com/Liapoldus/pluginprotocol/v2/presentation/peer"
+	sdkmodels "github.com/Liapoldus/plugin-sdk/v2/domain/models"
+	sdkinfra "github.com/Liapoldus/plugin-sdk/v2/infrastructure"
+	"github.com/Liapoldus/pluginprotocol/v3/presentation/peer"
 )
 
 type options struct {

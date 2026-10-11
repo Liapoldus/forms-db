@@ -13,7 +13,7 @@ import (
 
 	"github.com/Liapoldus/forms-db/internal/infrastructure/security"
 
-	"github.com/Liapoldus/pluginprotocol/v2/presentation/peer"
+	"github.com/Liapoldus/pluginprotocol/v3/presentation/peer"
 )
 
 func (handler *Handler) list(ctx context.Context, call peer.Call) (peer.Result, error) {

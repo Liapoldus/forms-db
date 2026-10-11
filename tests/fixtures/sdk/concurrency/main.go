@@ -15,7 +15,7 @@ import (
 	"github.com/Liapoldus/forms-db/internal/domain/models"
 	"github.com/Liapoldus/forms-db/internal/infrastructure/config"
 	"github.com/Liapoldus/forms-db/internal/presentation/restplugin"
-	sdkmodels "github.com/Liapoldus/plugin-sdk/domain/models"
+	sdkmodels "github.com/Liapoldus/plugin-sdk/v2/domain/models"
 )
 
 type repository struct {

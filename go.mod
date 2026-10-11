@@ -2,9 +2,13 @@ module github.com/Liapoldus/forms-db
 
 go 1.26.0
 
+replace github.com/Liapoldus/plugin-sdk/v2 => ../../plugin-sdk
+
+replace github.com/Liapoldus/pluginprotocol/v3 => ../../pluginprotocol
+
 require (
-	github.com/Liapoldus/plugin-sdk v1.0.0
-	github.com/Liapoldus/pluginprotocol/v2 v2.0.0
+	github.com/Liapoldus/plugin-sdk/v2 v2.0.0
+	github.com/Liapoldus/pluginprotocol/v3 v3.0.0
 	github.com/go-sql-driver/mysql v1.10.0
 	github.com/jackc/pgx/v5 v5.8.0
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2

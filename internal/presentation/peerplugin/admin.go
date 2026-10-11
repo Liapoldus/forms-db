@@ -6,8 +6,8 @@ import (
 
 	"github.com/Liapoldus/forms-db/internal/infrastructure/contracts"
 
-	sdkpresentation "github.com/Liapoldus/plugin-sdk/presentation"
-	"github.com/Liapoldus/pluginprotocol/v2/presentation/peer"
+	sdkpresentation "github.com/Liapoldus/plugin-sdk/v2/presentation"
+	"github.com/Liapoldus/pluginprotocol/v3/presentation/peer"
 )
 
 func (handler *Handler) AdminSurface(context.Context) ([]byte, error) {

@@ -14,6 +14,10 @@ plugin instance/configuration/endpoint/policy; Server plugin обслужива�
   Core уведомляет `Reload(generation)`, plugin запрашивает exact config
   generation сам, валидирует/применяет и подтверждает digest. Не получать
   settings из env/argv/application config files.
+- Каждый forms-db binary обязан собираться через Plugin SDK `HandlerSet`.
+  Универсальные `GET /healthz` и `GET /metrics` реализуются только SDK; forms-db
+  не добавляет собственные handlers, маршруты или response shapes для этих
+  endpoints.
 - После SDK миграции убрать из forms-db `pluginprotocol` lifecycle RPCs
   (`Bootstrap`, `Manifest`, `ConfigSchema`, `ConfigApply`, `Shutdown` и
   аналогичные control methods). Не сохранять fallback/compatibility API.

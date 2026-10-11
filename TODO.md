@@ -101,7 +101,7 @@ endpoint или локальную имитацию Core fence.
 ## Проверка публикации — 2026-10-05
 
 Коммит `f6dac5b` опубликован в `origin/main`; hosted Ubuntu verify прошёл.
-После миграции на SDK `v1.0.0` и `pluginprotocol/v2 v2.0.0` полный local npm
+После миграции на SDK `v2.0.0` и `pluginprotocol/v3 v3.0.0` полный local npm
 suite прошёл (20 файлов passed / 1 skipped; 33 tests passed / 3 DB-dependent
 skipped без DSN, Node cursor tests 2/2); `GOWORK=off` Go build/vet прошли.
 Локальные SQL-backed проверки и production Core→Server→forms-db на трёх DB
