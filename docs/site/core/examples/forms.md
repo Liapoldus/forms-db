@@ -1,8 +1,8 @@
-# Формы и plugin dispatch
+# Формы и service dispatch
 
-Плагин forms-db вызывается напрямую Server plugin-ом по capability, разрешённой
-владеющей plugins policy. Core хранит только generic settings и не хранит
-plugin-to-plugin interaction policy в v1. Management API не проксирует
+Сервис forms-db вызывается напрямую сервисом Server по capability, разрешённой
+владеющей services policy. Core хранит только generic settings и не хранит
+service-to-service interaction policy в v1. Management API не проксирует
 пользовательский payload.
 
-Capability schemas и Admin Surface принадлежат forms-db plugin; Plugin SDK обслуживает общие REST lifecycle/admin endpoints, а `pluginprotocol` — только прямую plugin-to-plugin сеть. См. [plugin Admin Pages](/plugins/admin-pages), [plugin configuration API](/core/api/config) и [целевую архитектуру](/core/architecture/target).
+Capability schemas и Admin Surface принадлежат forms-db service; Service SDK обслуживает общие REST lifecycle/admin endpoints, а `wool` — только прямую service-to-service сеть. См. [service Admin Pages](/services/admin-pages), [service configuration API](/core/api/config) и [целевую архитектуру](/core/architecture/target).

@@ -1,6 +1,6 @@
 package definition
 
-func Plugin() any {
+func Service() any {
 	return map[string]any{
 		"name": "forms-db",
 		"configuration": map[string]any{

@@ -3,11 +3,11 @@ import Ajv2020 from 'ajv/dist/2020.js';
 import { describe, expect, it } from 'vitest';
 
 const schema = readContract('settings.schema.json');
-const manifest = readContract('plugin.json');
+const manifest = readContract('service.json');
 const validate = new Ajv2020({ strict: true }).compile(schema);
 
 describe('forms-db SDK settings contract', () => {
-  it('publishes only plugin-owned capabilities and one settings schema', () => {
+  it('publishes only service-owned capabilities and one settings schema', () => {
     expect(manifest.name).toBe('forms-db');
     expect(manifest.configuration.schema).toBe('contracts/v1/settings.schema.json');
     expect(manifest.capabilities.map((entry: { name: string }) => entry.name)).toEqual([

@@ -29,9 +29,9 @@ import (
 	"syscall"
 	"time"
 
-	sdkmodels "github.com/Liapoldus/plugin-sdk/v2/domain/models"
-	sdkinfra "github.com/Liapoldus/plugin-sdk/v2/infrastructure"
-	"github.com/Liapoldus/pluginprotocol/v3/presentation/peer"
+	sdkmodels "github.com/Liapoldus/service-sdk/v2/domain/models"
+	sdkinfra "github.com/Liapoldus/service-sdk/v2/infrastructure"
+	"github.com/Liapoldus/wool/v3/presentation/peer"
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
@@ -73,7 +73,7 @@ func main() {
 func run() error {
 	contract, err := sdkinfra.LoadHTTPContract()
 	if err != nil {
-		return errors.New("load Plugin SDK HTTP contract")
+		return errors.New("load Service SDK HTTP contract")
 	}
 	directory, err := os.MkdirTemp("", "forms-multi-replica-")
 	if err != nil {
@@ -129,11 +129,11 @@ func run() error {
 	}
 	firstSettings, err := settings("secret:forms-dsn", false, driver, tablePrefix)
 	if err != nil {
-		return errors.New("encode initial plugin settings")
+		return errors.New("encode initial service settings")
 	}
 	secondSettings, err := settings("secret:forms-dsn", true, driver, tablePrefix)
 	if err != nil {
-		return errors.New("encode candidate plugin settings")
+		return errors.New("encode candidate service settings")
 	}
 	firstDigest := digest(firstSettings)
 	secondDigest := digest(secondSettings)
@@ -298,14 +298,14 @@ func run() error {
 		return err
 	}
 	defer func() { support.Check(stop(two)) }()
-	clientOne, err := pluginClient(contract, identities.rootPEM, identities.coreClient, restOne, revocation)
+	clientOne, err := serviceClient(contract, identities.rootPEM, identities.coreClient, restOne, revocation)
 	if err != nil {
-		return errors.New("create first plugin lifecycle client")
+		return errors.New("create first service lifecycle client")
 	}
 	defer clientOne.CloseIdleConnections()
-	clientTwo, err := pluginClient(contract, identities.rootPEM, identities.coreClient, restTwo, revocation)
+	clientTwo, err := serviceClient(contract, identities.rootPEM, identities.coreClient, restTwo, revocation)
 	if err != nil {
-		return errors.New("create second plugin lifecycle client")
+		return errors.New("create second service lifecycle client")
 	}
 	defer clientTwo.CloseIdleConnections()
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
@@ -405,7 +405,7 @@ func run() error {
 	firstCall := call(peerOne, "spiffe://liapoldus.test/forms/replica-one", "forms.submit", invalidPayload)
 	secondCall := call(peerTwo, "spiffe://liapoldus.test/forms/replica-two", "forms.submit", invalidPayload)
 	if firstCall.status != http.StatusUnprocessableEntity || secondCall.status != http.StatusOK {
-		return errors.New("plugin processes did not fence active schemas independently")
+		return errors.New("service processes did not fence active schemas independently")
 	}
 	mixedGenerationRequest, fixtureErr := json.Marshal(map[string]any{
 		"site": "portal", "schemaName": "contact", "limit": 1, "cursor": *page.Next,
@@ -598,7 +598,7 @@ func credentials(contract sdkinfra.HTTPContract, roots []byte, server, client id
 	return sdkinfra.NewStaticCredentialsProvider(material)
 }
 
-func pluginClient(contract sdkinfra.HTTPContract, roots []byte, coreClient identity, endpoint string, revocation *sdkinfra.Revocation) (*sdkinfra.PluginClient, error) {
+func serviceClient(contract sdkinfra.HTTPContract, roots []byte, coreClient identity, endpoint string, revocation *sdkinfra.Revocation) (*sdkinfra.ServiceClient, error) {
 	provider, err := credentials(contract, roots, coreClient, coreClient)
 	if err != nil {
 		return nil, err
@@ -609,10 +609,10 @@ func pluginClient(contract sdkinfra.HTTPContract, roots []byte, coreClient ident
 	if err != nil {
 		return nil, err
 	}
-	return sdkinfra.NewPluginClient(contract, "https://"+endpoint, client, sdkmodels.PeerIdentity{CommonName: "forms-replica"})
+	return sdkinfra.NewServiceClient(contract, "https://"+endpoint, client, sdkmodels.PeerIdentity{CommonName: "forms-replica"})
 }
 
-func waitHealth(ctx context.Context, client *sdkinfra.PluginClient) error {
+func waitHealth(ctx context.Context, client *sdkinfra.ServiceClient) error {
 	for ctx.Err() == nil {
 		if client.Health(ctx) == nil {
 			return nil

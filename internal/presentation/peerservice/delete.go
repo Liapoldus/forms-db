@@ -1,4 +1,4 @@
-package peerplugin
+package peerservice
 
 import (
 	"context"
@@ -10,7 +10,7 @@ import (
 
 	"github.com/Liapoldus/forms-db/internal/infrastructure/config"
 
-	"github.com/Liapoldus/pluginprotocol/v3/presentation/peer"
+	"github.com/Liapoldus/wool/v3/presentation/peer"
 )
 
 func (handler *Handler) delete(ctx context.Context, call peer.Call) (peer.Result, error) {
@@ -37,7 +37,7 @@ func (handler *Handler) delete(ctx context.Context, call peer.Call) (peer.Result
 			return nil
 		}
 		result = httpJSON(200, map[string]any{"deleted": true, "id": input.ID})
-		return nil //nolint:nilerr // The validation/storage refusal is already represented by the product HTTP envelope.
+		return nil
 	})
 	return result, err
 }

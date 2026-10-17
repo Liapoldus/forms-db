@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 const root = resolve(import.meta.dirname, '../../..');
 
 describe('forms-db independent process replicas', () => {
-  it('continues a cursor across mTLS plugin processes and fences generations independently', () => {
+  it('continues a cursor across mTLS service processes and fences generations independently', () => {
     const output = execFileSync('go', ['run', './tests/fixtures/cursor/replicas'], {
       cwd: root,
       encoding: 'utf8',

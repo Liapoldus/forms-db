@@ -8,7 +8,7 @@ const root = resolve(import.meta.dirname, '../../..');
 const deleteNegativeVectors = readFileSync(resolve(root, 'contracts/v1/delete-negative-vectors.json'), 'utf8');
 
 describe('forms-db generic peer dispatch', () => {
-  it('serves plugin-owned submit/delete methods without lifecycle RPCs', () => {
+  it('serves service-owned submit/delete methods without lifecycle RPCs', () => {
     const output = execFileSync('go', ['run', './tests/fixtures/peer/dispatch'], {
       cwd: root,
       env: { ...process.env, GOWORK: 'off', FORMS_DELETE_NEGATIVE_VECTORS: deleteNegativeVectors },

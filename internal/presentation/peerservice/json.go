@@ -1,4 +1,4 @@
-package peerplugin
+package peerservice
 
 import (
 	"bytes"
@@ -8,7 +8,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/Liapoldus/pluginprotocol/v3/presentation/peer"
+	"github.com/Liapoldus/wool/v3/presentation/peer"
 )
 
 func requestPayload(payload []byte) ([]byte, error) {
@@ -22,6 +22,7 @@ func requestPayload(payload []byte) ([]byte, error) {
 		Headers    map[string]string `json:"headers"`
 		Cookies    json.RawMessage   `json:"cookies"`
 		Body       []byte            `json:"body"`
+		Parameters json.RawMessage   `json:"parameters"`
 		RequestID  string            `json:"requestId"`
 		RemoteAddr string            `json:"remoteAddr"`
 	}

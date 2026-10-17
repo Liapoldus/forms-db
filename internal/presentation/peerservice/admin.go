@@ -1,4 +1,4 @@
-package peerplugin
+package peerservice
 
 import (
 	"context"
@@ -6,8 +6,8 @@ import (
 
 	"github.com/Liapoldus/forms-db/internal/infrastructure/contracts"
 
-	sdkpresentation "github.com/Liapoldus/plugin-sdk/v2/presentation"
-	"github.com/Liapoldus/pluginprotocol/v3/presentation/peer"
+	sdkpresentation "github.com/Liapoldus/service-sdk/v2/presentation"
+	"github.com/Liapoldus/wool/v3/presentation/peer"
 )
 
 func (handler *Handler) AdminSurface(context.Context) ([]byte, error) {
@@ -15,7 +15,7 @@ func (handler *Handler) AdminSurface(context.Context) ([]byte, error) {
 }
 
 // HandleAdminAction adapts the product-owned query and delete operations to the
-// generic Plugin SDK management action transport. The SDK owns REST/mTLS and
+// generic Service SDK management action transport. The SDK owns REST/mTLS and
 // invocation validation; forms-db owns the page/action mapping and payloads.
 func (handler *Handler) HandleAdminAction(ctx context.Context, input sdkpresentation.AdminActionInput) (sdkpresentation.AdminActionResponse, error) {
 	if input.Invocation.PageID != "submissions" {

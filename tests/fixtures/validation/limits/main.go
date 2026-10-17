@@ -12,10 +12,10 @@ import (
 	"github.com/Liapoldus/forms-db/internal/domain/interfaces"
 	"github.com/Liapoldus/forms-db/internal/infrastructure/config"
 	"github.com/Liapoldus/forms-db/internal/infrastructure/storage/memory"
-	"github.com/Liapoldus/forms-db/internal/presentation/peerplugin"
-	"github.com/Liapoldus/forms-db/internal/presentation/restplugin"
-	sdkmodels "github.com/Liapoldus/plugin-sdk/v2/domain/models"
-	"github.com/Liapoldus/pluginprotocol/v3/presentation/peer"
+	"github.com/Liapoldus/forms-db/internal/presentation/peerservice"
+	"github.com/Liapoldus/forms-db/internal/presentation/restservice"
+	sdkmodels "github.com/Liapoldus/service-sdk/v2/domain/models"
+	"github.com/Liapoldus/wool/v3/presentation/peer"
 )
 
 func main() {
@@ -84,7 +84,7 @@ func schemaWithFields(count int) map[string]any {
 
 func testSubmissionLimit(maxBytes int) (bool, bool) {
 	repository := memory.New()
-	active, err := restplugin.New(application.Service{Repository: memory.New()}, func(context.Context, config.Settings) (interfaces.Repository, error) {
+	active, err := restservice.New(application.Service{Repository: memory.New()}, func(context.Context, config.Settings) (interfaces.Repository, error) {
 		return repository, nil
 	}, nil)
 	if err != nil {
@@ -95,7 +95,7 @@ func testSubmissionLimit(maxBytes int) (bool, bool) {
 	if err != nil || active.Apply(context.Background(), configuration) != nil {
 		panic("could not apply valid settings")
 	}
-	handler, err := peerplugin.New(active, nil, peer.AllowAll{})
+	handler, err := peerservice.New(active, nil, peer.AllowAll{})
 	if err != nil {
 		panic(err)
 	}

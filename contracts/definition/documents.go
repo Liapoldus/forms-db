@@ -18,7 +18,7 @@ func Documents() map[string]any {
 		"v1/list-errors.json":                   ListErrors(),
 		"v1/list-request.schema.json":           ListRequestSchema(),
 		"v1/list-response.schema.json":          ListResponseSchema(),
-		"v1/plugin.json":                        Plugin(),
+		"v1/service.json":                        Service(),
 		"v1/request-json-vectors.json":          RequestJSONVectors(),
 		"v1/runtime-limits.json":                RuntimeLimits(),
 		"v1/cursor.json":                        policy.Cursor(),

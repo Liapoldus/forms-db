@@ -13,8 +13,8 @@ import (
 	"github.com/Liapoldus/forms-db/internal/infrastructure/config"
 	"github.com/Liapoldus/forms-db/internal/infrastructure/storage/memory"
 	"github.com/Liapoldus/forms-db/internal/infrastructure/storage/sqlstore"
-	"github.com/Liapoldus/forms-db/internal/presentation/restplugin"
-	sdkmodels "github.com/Liapoldus/plugin-sdk/v2/domain/models"
+	"github.com/Liapoldus/forms-db/internal/presentation/restservice"
+	sdkmodels "github.com/Liapoldus/service-sdk/v2/domain/models"
 )
 
 type secretSource struct {
@@ -32,7 +32,7 @@ func main() {
 	secrets := &secretSource{}
 	var active interfaces.Repository
 	var secretWasScoped bool
-	adapter, err := restplugin.New(application.Service{Repository: base}, func(_ context.Context, settings config.Settings) (interfaces.Repository, error) {
+	adapter, err := restservice.New(application.Service{Repository: base}, func(_ context.Context, settings config.Settings) (interfaces.Repository, error) {
 		if settings.Driver != "postgres" || string(settings.DSN) != "postgresql://private-dsn" {
 			return nil, errors.New("candidate did not receive scoped DSN")
 		}

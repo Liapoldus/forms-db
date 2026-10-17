@@ -3,10 +3,6 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": true,
   "properties": {
-    "plugin": {
-      "minLength": 1,
-      "type": "string"
-    },
     "requiredCapabilities": {
       "items": {
         "minLength": 1,
@@ -16,13 +12,17 @@
       "type": "array",
       "uniqueItems": true
     },
+    "service": {
+      "minLength": 1,
+      "type": "string"
+    },
     "version": {
       "const": 1
     }
   },
   "required": [
     "version",
-    "plugin",
+    "service",
     "requiredCapabilities"
   ],
   "title": "Ответ поверхности администратора forms-db v1",

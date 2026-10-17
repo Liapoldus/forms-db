@@ -1,13 +1,13 @@
-// Package peerplugin dispatches authorized product calls.
-package peerplugin
+// Package peerservice dispatches authorized product calls.
+package peerservice
 
 import (
 	"context"
 
-	"github.com/Liapoldus/forms-db/internal/presentation/restplugin"
-	sdkmodels "github.com/Liapoldus/plugin-sdk/v2/domain/models"
-	sdkpresentation "github.com/Liapoldus/plugin-sdk/v2/presentation"
-	"github.com/Liapoldus/pluginprotocol/v3/presentation/peer"
+	"github.com/Liapoldus/forms-db/internal/presentation/restservice"
+	sdkmodels "github.com/Liapoldus/service-sdk/v2/domain/models"
+	sdkpresentation "github.com/Liapoldus/service-sdk/v2/presentation"
+	"github.com/Liapoldus/wool/v3/presentation/peer"
 )
 
 // SecretProvider obtains one scoped cursor key per call; the SDK owns the
@@ -18,13 +18,13 @@ type SecretProvider interface {
 
 type Handler struct {
 	peer.Handler
-	active  *restplugin.Adapter
+	active  *restservice.Adapter
 	secrets SecretProvider
 }
 
-func New(active *restplugin.Adapter, secrets SecretProvider, authorizer peer.Authorizer) (*Handler, error) {
+func New(active *restservice.Adapter, secrets SecretProvider, authorizer peer.Authorizer) (*Handler, error) {
 	if active == nil {
-		return nil, restplugin.ErrStorageUnavailable
+		return nil, restservice.ErrStorageUnavailable
 	}
 	handler := &Handler{active: active, secrets: secrets}
 	registered, err := peer.NewRegistry().WithAuthorizer(authorizer).

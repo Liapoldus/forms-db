@@ -16,7 +16,7 @@ describe("forms-db-owned admin surface contract", () => {
     expect(surfaceSource).not.toContain("ConfigSchema");
   });
 
-  it("maps the submissions query and delete UI operations to plugin-owned actions", async () => {
+  it("maps the submissions query and delete UI operations to service-owned actions", async () => {
     const [surfaceSource, listSchemaSource, deleteSchemaSource] = await Promise.all([
       readFile(`${root}/contracts/v1/admin-surface.json`, "utf8"),
       readFile(`${root}/contracts/v1/list-request.schema.json`, "utf8"),
@@ -59,7 +59,7 @@ describe("forms-db-owned admin surface contract", () => {
     const submissions = surface.pages.find((page: { id: string }) => page.id === "submissions");
     if (!submissions) throw new Error("missing submissions contract entry");
 
-    expect(submissions.permissions).toEqual(["plugins.forms-db.read", "plugins.forms-db.write"]);
+    expect(submissions.permissions).toEqual(["services.forms-db.read", "services.forms-db.write"]);
   });
 
   it("binds forms.delete inputs to declared columns in the selected submissions row", async () => {

@@ -1,4 +1,4 @@
-package peerplugin
+package peerservice
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 	"github.com/Liapoldus/forms-db/internal/domain/models"
 	"github.com/Liapoldus/forms-db/internal/infrastructure/config"
 
-	"github.com/Liapoldus/pluginprotocol/v3/presentation/peer"
+	"github.com/Liapoldus/wool/v3/presentation/peer"
 )
 
 func (handler *Handler) submit(ctx context.Context, call peer.Call) (peer.Result, error) {
@@ -33,7 +33,7 @@ func (handler *Handler) submit(ctx context.Context, call peer.Call) (peer.Result
 	err = handler.active.Use(func(service application.Service, settings config.Settings) error {
 		if settings.ValidateSubmissionData(input.SchemaName, input.Data) != nil {
 			result = httpJSON(422, map[string]any{"code": "validation_failed"})
-			return nil //nolint:nilerr // The validation/storage refusal is already represented by the product HTTP envelope.
+			return nil //nolint:nilerr // Validation is already represented by the product HTTP envelope.
 		}
 		item, err := service.Submit(ctx, models.Submission{Site: input.Site, Schema: input.SchemaName, Data: input.Data})
 		if err != nil {
@@ -41,7 +41,7 @@ func (handler *Handler) submit(ctx context.Context, call peer.Call) (peer.Result
 			return nil //nolint:nilerr // The validation/storage refusal is already represented by the product HTTP envelope.
 		}
 		result = httpJSON(200, map[string]any{"id": item.ID, "createdAt": item.CreatedAt, "data": item.Data})
-		return nil //nolint:nilerr // The validation/storage refusal is already represented by the product HTTP envelope.
+		return nil
 	})
 	return result, err
 }

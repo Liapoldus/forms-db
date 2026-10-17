@@ -1,4 +1,4 @@
-package restplugin
+package restservice
 
 import (
 	"context"
@@ -7,11 +7,11 @@ import (
 	"net/http"
 	"time"
 
-	sdkapp "github.com/Liapoldus/plugin-sdk/v2/application"
-	sdkinterfaces "github.com/Liapoldus/plugin-sdk/v2/domain/interfaces"
-	sdkmodels "github.com/Liapoldus/plugin-sdk/v2/domain/models"
-	sdkinfra "github.com/Liapoldus/plugin-sdk/v2/infrastructure"
-	sdkpresentation "github.com/Liapoldus/plugin-sdk/v2/presentation"
+	sdkapp "github.com/Liapoldus/service-sdk/v2/application"
+	sdkinterfaces "github.com/Liapoldus/service-sdk/v2/domain/interfaces"
+	sdkmodels "github.com/Liapoldus/service-sdk/v2/domain/models"
+	sdkinfra "github.com/Liapoldus/service-sdk/v2/infrastructure"
+	sdkpresentation "github.com/Liapoldus/service-sdk/v2/presentation"
 )
 
 type LifecycleOptions struct {
@@ -135,8 +135,8 @@ func presentationContracts(contract sdkinfra.HTTPContract) sdkpresentation.Contr
 		return sdkpresentation.DocumentContract{MediaType: value.MediaType, MaximumBytes: value.MaximumBytes,
 			Required: append([]string(nil), value.Required...), DigestAlgorithm: value.DigestAlgorithm}
 	}
-	artifact := contract.Plugin.ArtifactStream
-	admin := contract.Plugin.AdminAction
+	artifact := contract.Service.ArtifactStream
+	admin := contract.Service.AdminAction
 	invocation := admin.InvocationContext
 	problems := make(map[string]sdkpresentation.Problem, len(contract.Problems))
 	for name, value := range contract.Problems {
@@ -154,23 +154,23 @@ func presentationContracts(contract sdkinfra.HTTPContract) sdkpresentation.Contr
 		ArtifactStreamEndpoint: endpoint("artifactStream"),
 		AdminSurfaceEndpoint:   endpoint("adminSurface"), AdminActionEndpoint: endpoint("adminAction"),
 		MetricsEndpoint: endpoint("metrics"),
-		HealthStatus:    contract.Plugin.Responses.Health.Status,
-		HealthBody:      cloneStringMap(contract.Plugin.Responses.Health.Body),
+		HealthStatus:    contract.Service.Responses.Health.Status,
+		HealthBody:      cloneStringMap(contract.Service.Responses.Health.Body),
 		ContentTypes: sdkpresentation.ContentTypes{
-			JSON:    contract.Plugin.Responses.ContentTypes.JSON,
-			Metrics: contract.Plugin.Responses.ContentTypes.Metrics,
+			JSON:    contract.Service.Responses.ContentTypes.JSON,
+			Metrics: contract.Service.Responses.ContentTypes.Metrics,
 		},
-		ReloadRequest:         document(contract.Plugin.ReloadRequest),
-		ReloadAcknowledgement: document(contract.Plugin.ReloadAcknowledgement),
-		Readiness:             document(contract.Plugin.Readiness),
-		Manifest:              document(contract.Plugin.Manifest),
-		ConfigurationSchema:   document(contract.Plugin.ConfigurationSchema),
+		ReloadRequest:         document(contract.Service.ReloadRequest),
+		ReloadAcknowledgement: document(contract.Service.ReloadAcknowledgement),
+		Readiness:             document(contract.Service.Readiness),
+		Manifest:              document(contract.Service.Manifest),
+		ConfigurationSchema:   document(contract.Service.ConfigurationSchema),
 		Registration: document(sdkinfra.DocumentContract{
 			MediaType:    contract.Identity.Registration.MediaType,
 			MaximumBytes: contract.Identity.Registration.MaximumBytes,
 			Required:     contract.Identity.Registration.Required,
 		}),
-		MaximumMetadataBytes: contract.Plugin.MaximumMetadataBytes,
+		MaximumMetadataBytes: contract.Service.MaximumMetadataBytes,
 		ArtifactStream: sdkpresentation.ArtifactStreamContract{
 			MediaType: artifact.MediaType, MetadataMediaType: artifact.MetadataMediaType,
 			Parts: append([]string(nil), artifact.Parts...), PartOrder: append([]string(nil), artifact.PartOrder...),
@@ -186,7 +186,7 @@ func presentationContracts(contract sdkinfra.HTTPContract) sdkpresentation.Contr
 				Headers:      cloneStringMap(artifact.InvocationContext.Headers),
 			},
 		},
-		AdminSurface: document(contract.Plugin.AdminSurface),
+		AdminSurface: document(contract.Service.AdminSurface),
 		AdminAction: sdkpresentation.AdminActionContract{
 			MediaType: admin.MediaType, MaximumRequestBytes: admin.MaximumRequestBytes,
 			MaximumResponseBytes: admin.MaximumResponseBytes, MaximumPageIDBytes: admin.MaximumPageIDBytes,
@@ -199,7 +199,7 @@ func presentationContracts(contract sdkinfra.HTTPContract) sdkpresentation.Contr
 				Headers: cloneStringMap(invocation.Headers),
 			},
 		},
-		ReadinessDeadline: time.Duration(contract.Deadlines.PluginReadinessSeconds) * time.Second,
+		ReadinessDeadline: time.Duration(contract.Deadlines.ServiceReadinessSeconds) * time.Second,
 		Problems:          problems, Errors: errors,
 		OutcomeProblems: cloneStringMap(contract.OutcomeProblems),
 		SuccessOutcomes: append([]string(nil), contract.SuccessOutcomes...),
@@ -214,5 +214,5 @@ func cloneStringMap(source map[string]string) map[string]string {
 	return copy
 }
 
-var _ sdkinterfaces.PluginMetadata = (*Adapter)(nil)
+var _ sdkinterfaces.ServiceMetadata = (*Adapter)(nil)
 var _ sdkinterfaces.ConfigurationApplier = (*Adapter)(nil)

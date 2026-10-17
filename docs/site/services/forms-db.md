@@ -1,18 +1,18 @@
 # forms-db
 
-Плагин форм: приём и просмотр отправок веб-форм с memory-, SQLite-, PostgreSQL-
-или MySQL-хранилищем. Эталонный пример плагина для
-[гайда по созданию плагинов](/core/architecture/guide).
+Сервис форм: приём и просмотр отправок веб-форм с memory-, SQLite-, PostgreSQL-
+или MySQL-хранилищем. Эталонный пример сервиса для
+[гайда по созданию сервисов](/core/architecture/guide).
 
-Репозиторий: **отдельный git-репозиторий** плагина — свой Go-модуль,
+Репозиторий: **отдельный git-репозиторий** сервиса — свой Go-модуль,
 не в репозитории Core. Бинарник собирается из этого репозитория.
-Core↔plugin configuration lifecycle обслуживает Plugin SDK REST; plugin-specific
-settings и их schema остаются контрактом forms-db. `pluginprotocol` не
+Core↔service configuration lifecycle обслуживает Service SDK REST; service-specific
+settings и их schema остаются контрактом forms-db. `wool` не
 обслуживает Core lifecycle.
 
 Бинарник forms-db использует SDK `HandlerSet` без product-specific lifecycle
 handlers. Универсальные `GET /healthz` и `GET /metrics` полностью принадлежат
-Plugin SDK и имеют ту же семантику, что у Server и Echo; forms-db не объявляет
+Service SDK и имеют ту же семантику, что у Server и Echo; forms-db не объявляет
 собственные маршруты или response shapes для них.
 
 ## Capabilities
@@ -26,9 +26,9 @@ Plugin SDK и имеют ту же семантику, что у Server и Echo;
 ## Business contract
 
 Канонические JSON Schema requests/responses и mapping typed errors принадлежат
-forms-db plugin и хранятся в его `contracts/v1/`. Общий plugin interface переносит
+forms-db service и хранятся в его `contracts/v1/`. Общий service interface переносит
 эти payloads как opaque JSON и не содержит forms-db contract.
-Для публичной формы `site` задаёт доверенная маршрутизация Server-плагина, а не поле браузерского запроса.
+Для публичной формы `site` задаёт доверенная маршрутизация Server, а не поле браузерского запроса.
 Каждый capability payload должен содержать ровно один JSON object. Повторяющиеся
 members на любом уровне, конфликтующие по регистру имена верхнего уровня и
 дополнительный JSON document отклоняются как `validation_failed` (`422`);
@@ -58,26 +58,26 @@ Top-level request и успешный response формально описаны
 значение — JSON Schema. Поддерживается Draft 2020-12; имя должно соответствовать
 `^[a-z][a-z0-9_-]{0,63}$`. Core хранит исходный JSON object настроек в SQLite,
 сохраняет его исходные bytes и валидирует документ generic-валидатором по
-plugin-owned schema; Core не декодирует продуктовые поля. Плагин не получает
+service-owned schema; Core не декодирует продуктовые поля. Сервис не получает
 secret bytes или локальные file paths. Для SQL
 DSN конфигурация содержит только opaque secret reference; Core выдаёт через
-Plugin SDK REST instance/generation-scoped grant, по которому plugin отдельно
+Service SDK REST instance/generation-scoped grant, по которому service отдельно
 redeem-ит DSN у Core. DSN живёт только в памяти активной ревизии и
 заменяется атомарно при успешном применении новой конфигурации. Внешняя загрузка
 схем и удалённые `$ref` запрещены:
 все используемые определения должны находиться внутри самой схемы (например,
 в `$defs`). REST Reload сначала компилирует все схемы и готовит новое
 хранилище, и только затем атомарно заменяет активную конфигурацию. При ошибке
-активные настройки и хранилище остаются без изменений. Plugin держит применённую
-revision в памяти. Core уведомляет плагин через REST `Reload(generation)`;
-плагин сам запрашивает у Core именно эту immutable generation. После рестарта
-плагина при работающем Core read-only readiness monitor отмечает его как
+активные настройки и хранилище остаются без изменений. Service держит применённую
+revision в памяти. Core уведомляет сервис через REST `Reload(generation)`;
+сервис сам запрашивает у Core именно эту immutable generation. После рестарта
+сервиса при работающем Core read-only readiness monitor отмечает его как
 degraded, но не повторяет `Reload`. После проверки health оператор вручную
 перезапускает Core; startup reconciliation передаёт active generation до того,
 как replica снова станет ready.
-На границе плагина settings должны быть ровно одним UTF-8 JSON object; повторные
+На границе сервиса settings должны быть ровно одним UTF-8 JSON object; повторные
 имена members на любой глубине и любые trailing JSON documents отклоняются.
-Plugin сначала проверяет объект по собственной versioned settings schema, затем
+Service сначала проверяет объект по собственной versioned settings schema, затем
 декодирует его в runtime-модель; ссылки `dsn` и `cursorSecretRef` остаются
 непрозрачными для forms-db и проверяются только при соответствующей выдаче grant
 Core.
@@ -88,7 +88,7 @@ Core.
 {"site":"portal","schemaName":"contact","cursor":"optional","limit":50,"filter":{"field":"email","equals":"a@example.com"}}
 ```
 
-Cursor — непрозрачное значение; плагин защищает его HMAC и использует для
+Cursor — непрозрачное значение; сервис защищает его HMAC и использует для
 keyset pagination. Результаты упорядочиваются по `createdAt DESC, id DESC`;
 `id` обеспечивает стабильный порядок при совпадении времени. Cursor привязан к
 точным значениям `site`, `schemaName` и equality-фильтра. Повторное применение
@@ -108,13 +108,13 @@ SQL операций. Нулевое,
 незарегистрированная schema или некорректный фильтр дают `validation_failed`
 (`422`). Явное значение `null` отличается от отсутствующего поля. Cursor
 ограничен по времени действия; при истечении, повреждении или несовпадении
-scope плагин возвращает общий отказ без раскрытия содержимого cursor.
+scope сервис возвращает общий отказ без раскрытия содержимого cursor.
 Срок действия cursor — 15 минут с момента выдачи.
 
 Ключ подписи не входит в настройки как значение: `cursorSecretRef` указывает
-на секрет Core, а plugin запрашивает scoped grant для `forms.list` через отдельный
-Plugin SDK REST grant-redemption endpoint при обработке конкретного вызова.
-Ключ не читается из env или локального файла и не сохраняется plugin-ом между
+на секрет Core, а service запрашивает scoped grant для `forms.list` через отдельный
+Service SDK REST grant-redemption endpoint при обработке конкретного вызова.
+Ключ не читается из env или локального файла и не сохраняется service-ом между
 вызовами; он очищается после создания/использования signer-а. При отсутствии
 или недоступности grant `forms.list` завершается fail-closed с
 `storage_unavailable`; остальные capabilities могут продолжать работу. Все
@@ -142,7 +142,7 @@ SQLite audit или ошибки. Forms-db не ведёт параллельн�
 settings допускается только opaque reference. MariaDB использует `mysql`.
 
 Пример versioned JSON settings document, который forms-db запрашивает у Core
-после `Reload` (это не локальный application-config файл plugin):
+после `Reload` (это не локальный application-config файл service):
 
 ```json
 {
@@ -160,27 +160,27 @@ settings допускается только opaque reference. MariaDB испо�
 | `schemas` | именованные JSON Schema принимаемых форм | обязателен |
 | `dsn` | opaque Core secret reference для любого persistent-драйвера; для `memory` запрещён | — |
 | `cursorSecretRef` | opaque reference для подписи курсоров `forms.list` | — |
-| `tablePrefix` | префикс таблиц плагина | `form_` |
+| `tablePrefix` | префикс таблиц сервиса | `form_` |
 
-Для SQLite значение секрета может быть абсолютным путём к plugin-owned файлу;
+Для SQLite значение секрета может быть абсолютным путём к service-owned файлу;
 для PostgreSQL/MySQL — строкой подключения. Core выдаёт
-instance/generation-scoped grant при конфигурировании, а plugin получает
+instance/generation-scoped grant при конфигурировании, а service получает
 реальный DSN отдельно и держит его в памяти активного поколения до его замены
 или остановки.
 
-Декларация плагина и привязка capability к маршруту — общий синтаксис
-[«Обзор и настройка»](/plugins/).
+Декларация сервиса и привязка capability к маршруту — общий синтаксис
+[«Обзор и настройка»](/services/).
 
-Plugin SDK REST публикует декларативную страницу из единственного
-plugin-owned `contracts/v1/admin-surface.json`. Core получает её по mTLS и
+Service SDK REST публикует декларативную страницу из единственного
+service-owned `contracts/v1/admin-surface.json`. Core получает её по mTLS и
 передаёт неизменённый документ клиенту управления. Запрос страницы
-`submissions/query` отображается на plugin-owned capability `forms.list`, а
+`submissions/query` отображается на service-owned capability `forms.list`, а
 действие `submissions/delete` — на `forms.delete`; Core передаёт opaque page и
 action ID через общий SDK JSON-action endpoint и не знает эти product strings.
 
 ## Локальная проверка
 
-Из каталога plugin-репозитория:
+Из каталога service-репозитория:
 
 ```bash
 go build ./...
@@ -191,7 +191,7 @@ go test ./...
 ## Административная поверхность
 
 forms-db публикует одну declarative admin page через общий
-[Plugin Admin Pages](/plugins/admin-pages) contract и Plugin SDK REST. Он не
+[Service Admin Pages](/services/admin-pages) contract и Service SDK REST. Он не
 поставляет React код и не открывает отдельный management listener.
 
 ### Form submissions
@@ -199,9 +199,9 @@ forms-db публикует одну declarative admin page через общи�
 В v1 Core разрешает чтение и mutation Admin Surface только service credential
 `platform-admin`; доступ распространяется на весь forms-db instance. Отдельного
 per-site allow-list/tenant ACL нет. `site` и `schemaName` — обязательные фильтры
-запроса, но не граница авторизации. Значения `plugins.forms-db.read` и
-`plugins.forms-db.write` в декларации являются отдельными Controller-side
-permissions, если их проверяет UI backend; они не ограничивают Core/plugin
+запроса, но не граница авторизации. Значения `services.forms-db.read` и
+`services.forms-db.write` в декларации являются отдельными Controller-side
+permissions, если их проверяет UI backend; они не ограничивают Core/service
 доступ по site.
 
 Верхняя filter form выбирает `site` и `schemaName`, а также optional
@@ -215,24 +215,24 @@ forms.list; `schemaName` запрашивает варианты тем же fix
 в свободный ввод.
 
 `Delete submission` вызывает `forms.delete` только для выбранной записи и
-в Controller может дополнительно требовать `plugins.forms-db.write`, но Core
+в Controller может дополнительно требовать `services.forms-db.write`, но Core
 в любом случае требует `platform-admin`. Перед mutation Core возвращает
 неисполняющий `428 confirmation_required` с одноразовым token; клиент
 показывает объявленное confirmation-сообщение и повторяет неизменный запрос
 только после явного подтверждения. Оба запроса используют один
 `Idempotency-Key`, а digest Surface передаётся через `If-Match`. Core
 создаёт audit record с actor, instance, site, schemaName, record ID и outcome;
-plugin получает минимальный typed input. Полный handshake описан в
-[Plugin Admin Pages](/plugins/admin-pages).
+service получает минимальный typed input. Полный handshake описан в
+[Service Admin Pages](/services/admin-pages).
 Surface action объявляет `inputSchema` для `recordId` и `rowInput`
 `{"recordId":"id"}`; поэтому UI передаёт ровно ID выбранной строки, а не весь
 объект submission.
 
-Настройки хранилища не являются отдельной capability или страницей плагина.
+Настройки хранилища не являются отдельной capability или страницей Studio.
 Их редактирование идёт через общий Core config API: raw JSON document без
 обёртки, CAS-предусловие, новое поколение и REST `Reload` с точным pull.
 
-Reference surface fixture: plugin-owned `contracts/v1/admin-surface.json`.
+Reference surface fixture: service-owned `contracts/v1/admin-surface.json`.
 
 ## Ручной запуск v1
 
@@ -281,7 +281,7 @@ storage, schema-cohort rollout или production readiness. Новые product
 совместимости и acceptance открываются только вместе с v3 owner планом.
 
 В v3 forms-db может развиться из backend-а отправок форм в управляемый
-плагином website-продукт: владелец задаёт структуру и данные сайта, плагин
+сервисом website-продукт: владелец задаёт структуру и данные сайта, сервис
 сохраняет контент в поддерживаемом им хранилище, а автоматически
 генерируемая админ-панель позволяет его просматривать и редактировать. Панель
 должна поддерживать ролевую авторизацию и быть доступна на отдельно
@@ -293,51 +293,51 @@ storage, schema-cohort rollout или production readiness. Новые product
 
 - хранить контент сайта и связанные с ним продуктовые данные в собственном
   storage; не переносить эти данные в SQLite Core;
-- валидировать и применять plugin-owned schema/config через общий lifecycle
-  Plugin SDK; Core остаётся хранилищем точных config bytes и не интерпретирует
+- валидировать и применять service-owned schema/config через общий lifecycle
+  Service SDK; Core остаётся хранилищем точных config bytes и не интерпретирует
   сайт, роли, контент или DB-модель;
 - предоставлять продуктовые операции чтения и изменения контента и описывать
   их собственными versioned contracts;
 - предоставлять или собирать административный UI для этих операций, не
-  добавляя UI-specific контракты в `pluginprotocol`; интерфейс должен
+  добавляя UI-specific контракты в `wool`; интерфейс должен
   генерироваться из явно утверждённых product metadata/schema, а не из
   произвольного introspection базы данных;
-- использовать разрешённые межплагинные вызовы только через generic
-  `pluginprotocol`; публикация/доставка публичного сайта и владение listener-ом
-  должны быть согласованы с Server plugin, а не обходить его границу без
+- использовать разрешённые межсервисные вызовы только через generic
+  `wool`; публикация/доставка публичного сайта и владение listener-ом
+  должны быть согласованы с Server service, а не обходить его границу без
   отдельного решения.
 
 В v3 потребуется описать и проверить границы доступа к панели, роли и их
 назначение, разделение публичного контента и административных операций,
 изменение схемы/миграции, публикацию и откат сайта, резервное копирование,
-совместную работу с Server plugin, отказоустойчивость и безопасное обновление
+совместную работу с Server service, отказоустойчивость и безопасное обновление
 контента. Нельзя считать текущий `platform-admin` policy достаточной моделью
 для будущей website-админки: эта политика утверждена только для v1 Admin
 Surface forms-db.
 
 `--server-cert`/`--server-key` идентифицируют REST replica, ожидаемую Core в
-`plugins[].replicas[].expectedPeerIdentity`. `--client-cert`/`--client-key`
+`services[].replicas[].expectedPeerIdentity`. `--client-cert`/`--client-key`
 используются для pull exact-generation config и secret grants; `--core-common-name`
 и `--core-server-name` проверяют Core TLS server, а
 `--core-client-common-name` — Core certificate для входящего `Reload`. URI SAN
 проверяются дополнительно, если переданы `--core-uri` и `--core-client-uri`;
 значение флага должно точно совпадать с URI SAN соответствующего
-Core-сертификата. Это identity и trust для Core↔plugin REST.
+Core-сертификата. Это identity и trust для Core↔service REST.
 
 В примере `forms-db`, `forms-db-1`, адреса и URI — демонстрационные значения;
 они должны точно совпадать с Core bootstrap и Server peer target. Замените
 placeholder paths существующими абсолютными путями.
 
-Отдельная группа `--peer-*` включает plugin↔plugin listener; она использует
+Отдельная группа `--peer-*` включает service↔service listener; она использует
 собственные CA и сертификат. `--peer-allowed-caller` должен точно совпадать с
 Server `--peer-identity`; адрес из Server `--peer-endpoint` должен вести на
 `--peer-listen`. При совместном запуске на одной машине используйте loopback;
 при разнесении по private hosts listener должен быть доступен только от
-разрешённых plugin peers. В v1 carrier — `tcp` или `quic`, но для базового
+разрешённых service peers. В v1 carrier — `tcp` или `quic`, но для базового
 локального walkthrough применяется `tcp`.
 
 После запуска Core replica inventory должен показывать forms-db как доступный,
 а Server должен успешно выполнять разрешённые вызовы к нему. Если forms-db
 перезапущен при работающем Core, inventory остаётся degraded до ручного
 перезапуска Core и startup reconciliation; оператор не редактирует и не копирует
-plugin settings в локальный файл.
+service settings в локальный файл.

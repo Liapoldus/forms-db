@@ -11,10 +11,10 @@ import (
 	"github.com/Liapoldus/forms-db/internal/domain/interfaces"
 	"github.com/Liapoldus/forms-db/internal/infrastructure/config"
 	"github.com/Liapoldus/forms-db/internal/infrastructure/storage/memory"
-	"github.com/Liapoldus/forms-db/internal/presentation/peerplugin"
-	"github.com/Liapoldus/forms-db/internal/presentation/restplugin"
-	sdkmodels "github.com/Liapoldus/plugin-sdk/v2/domain/models"
-	"github.com/Liapoldus/pluginprotocol/v3/presentation/peer"
+	"github.com/Liapoldus/forms-db/internal/presentation/peerservice"
+	"github.com/Liapoldus/forms-db/internal/presentation/restservice"
+	sdkmodels "github.com/Liapoldus/service-sdk/v2/domain/models"
+	"github.com/Liapoldus/wool/v3/presentation/peer"
 )
 
 type deleteNegativeVector struct {
@@ -23,7 +23,7 @@ type deleteNegativeVector struct {
 }
 
 func main() {
-	active, err := restplugin.New(application.Service{Repository: memory.New()}, func(context.Context, config.Settings) (interfaces.Repository, error) {
+	active, err := restservice.New(application.Service{Repository: memory.New()}, func(context.Context, config.Settings) (interfaces.Repository, error) {
 		return memory.New(), nil
 	}, nil)
 	if err != nil {
@@ -34,7 +34,7 @@ func main() {
 	if err != nil || active.Apply(context.Background(), configuration) != nil {
 		panic("active form schema unavailable")
 	}
-	handler, err := peerplugin.New(active, nil, peer.AllowAll{})
+	handler, err := peerservice.New(active, nil, peer.AllowAll{})
 	if err != nil {
 		panic(err)
 	}
@@ -62,7 +62,10 @@ func main() {
 	envelope, fixtureErr := json.Marshal(map[string]any{
 		"method": "POST", "path": "/forms", "headers": map[string]string{"content-type": "application/json"},
 		"cookies": []map[string]string{{"name": "session", "value": "allowed-context-marker"}},
-		"body":    envelopeBody, "requestId": "request-2", "remoteAddr": "127.0.0.1:1",
+		"body": envelopeBody, "parameters": map[string]any{
+			"version": "server-http/v1", "body": json.RawMessage(envelopeBody),
+		},
+		"requestId": "request-2", "remoteAddr": "127.0.0.1:1",
 	})
 	support.Check(fixtureErr)
 	envelopeStatus, _ := invoke("forms.submit", envelope)

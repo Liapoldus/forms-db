@@ -4,8 +4,8 @@
       "capability": "forms.list",
       "id": "submissions",
       "permissions": [
-        "plugins.forms-db.read",
-        "plugins.forms-db.write"
+        "services.forms-db.read",
+        "services.forms-db.write"
       ],
       "query": {
         "capability": "forms.list",
@@ -132,10 +132,10 @@
       "title": "Form submissions"
     }
   ],
-  "plugin": "forms-db",
   "requiredCapabilities": [
     "forms.list",
     "forms.delete"
   ],
+  "service": "forms-db",
   "version": 1
 }

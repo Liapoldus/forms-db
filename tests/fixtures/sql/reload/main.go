@@ -16,8 +16,8 @@ import (
 	"github.com/Liapoldus/forms-db/internal/domain/models"
 	"github.com/Liapoldus/forms-db/internal/infrastructure/config"
 	"github.com/Liapoldus/forms-db/internal/infrastructure/storage/sqlstore"
-	"github.com/Liapoldus/forms-db/internal/presentation/restplugin"
-	sdkmodels "github.com/Liapoldus/plugin-sdk/v2/domain/models"
+	"github.com/Liapoldus/forms-db/internal/presentation/restservice"
+	sdkmodels "github.com/Liapoldus/service-sdk/v2/domain/models"
 )
 
 type secretSource struct{ candidateDSN string }
@@ -50,7 +50,7 @@ func run() error {
 		return errors.New("create old SQL repository")
 	}
 	candidateReady := make(chan struct{}, 1)
-	adapter, err := restplugin.New(application.Service{Repository: oldRepository}, func(buildCtx context.Context, settings config.Settings) (interfaces.Repository, error) {
+	adapter, err := restservice.New(application.Service{Repository: oldRepository}, func(buildCtx context.Context, settings config.Settings) (interfaces.Repository, error) {
 		repository, err := sqlstore.NewRepository(buildCtx, settings.Driver, string(settings.DSN), settings.TablePrefix, settings.Schemas)
 		if err == nil {
 			candidateReady <- struct{}{}

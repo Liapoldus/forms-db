@@ -3,7 +3,7 @@ package definition
 func SettingsSchema() any {
 	return map[string]any{
 		"$schema":              "https://json-schema.org/draft/2020-12/schema",
-		"$id":                  "https://liapoldus.github.io/plugins/forms-db/settings/v1/schema.json",
+		"$id":                  "https://liapoldus.github.io/services/forms-db/settings/v1/schema.json",
 		"type":                 "object",
 		"additionalProperties": false,
 		"required": []any{

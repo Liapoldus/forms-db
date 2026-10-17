@@ -27,14 +27,14 @@ func AdminSurfaceResponseSchema() any {
 		"additionalProperties": true,
 		"required": []any{
 			"version",
-			"plugin",
+			"service",
 			"requiredCapabilities",
 		},
 		"properties": map[string]any{
 			"version": map[string]any{
 				"const": 1,
 			},
-			"plugin": map[string]any{
+			"service": map[string]any{
 				"type":      "string",
 				"minLength": 1,
 			},
@@ -76,7 +76,7 @@ func AdminSurfaceVectors() any {
 func AdminSurface() any {
 	return map[string]any{
 		"version": 1,
-		"plugin":  "forms-db",
+		"service":  "forms-db",
 		"requiredCapabilities": []any{
 			"forms.list",
 			"forms.delete",
@@ -134,8 +134,8 @@ func AdminSurface() any {
 					},
 				},
 				"permissions": []any{
-					"plugins.forms-db.read",
-					"plugins.forms-db.write",
+					"services.forms-db.read",
+					"services.forms-db.write",
 				},
 				"sections": []any{
 					map[string]any{

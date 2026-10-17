@@ -8,29 +8,29 @@ import (
 	"github.com/santhosh-tekuri/jsonschema/v6"
 )
 
-var ErrInvalidPluginContract = errors.New("invalid forms-db plugin contract")
+var ErrInvalidServiceContract = errors.New("invalid forms-db service contract")
 
 var settingsSchemaOnce sync.Once
 var settingsSchema *jsonschema.Schema
 var settingsSchemaError error
 
-func PluginManifest() ([]byte, error) {
-	return pluginDocument("v1/plugin.json")
+func ServiceManifest() ([]byte, error) {
+	return serviceDocument("v1/service.json")
 }
 
 func SettingsSchema() ([]byte, error) {
-	return pluginDocument("v1/settings.schema.json")
+	return serviceDocument("v1/settings.schema.json")
 }
 
 func ValidateSettings(contents []byte) error {
 	limits, err := Limits()
 	if err != nil || len(contents) > limits.SettingsMaxBytes {
-		return ErrInvalidPluginContract
+		return ErrInvalidServiceContract
 	}
 	settingsSchemaOnce.Do(func() {
 		encoded, err := SettingsSchema()
 		if err != nil {
-			settingsSchemaError = ErrInvalidPluginContract
+			settingsSchemaError = ErrInvalidServiceContract
 			return
 		}
 		var source struct {
@@ -38,31 +38,31 @@ func ValidateSettings(contents []byte) error {
 		}
 		var document any
 		if json.Unmarshal(encoded, &source) != nil || source.ID == "" || json.Unmarshal(encoded, &document) != nil {
-			settingsSchemaError = ErrInvalidPluginContract
+			settingsSchemaError = ErrInvalidServiceContract
 			return
 		}
 		compiler := jsonschema.NewCompiler()
 		compiler.DefaultDraft(jsonschema.Draft2020)
 		if compiler.AddResource(source.ID, document) != nil {
-			settingsSchemaError = ErrInvalidPluginContract
+			settingsSchemaError = ErrInvalidServiceContract
 			return
 		}
 		settingsSchema, settingsSchemaError = compiler.Compile(source.ID)
 	})
 	if settingsSchemaError != nil || settingsSchema == nil {
-		return ErrInvalidPluginContract
+		return ErrInvalidServiceContract
 	}
 	var document any
 	if json.Unmarshal(contents, &document) != nil || settingsSchema.Validate(document) != nil {
-		return ErrInvalidPluginContract
+		return ErrInvalidServiceContract
 	}
 	return nil
 }
 
-func pluginDocument(path string) ([]byte, error) {
+func serviceDocument(path string) ([]byte, error) {
 	contents, err := Document(path)
 	if err != nil || !json.Valid(contents) {
-		return nil, ErrInvalidPluginContract
+		return nil, ErrInvalidServiceContract
 	}
 	return contents, nil
 }

@@ -1,5 +1,13 @@
 # TODO — forms-db v1
 
+## Studio configurator scope — 2026-10-13
+
+forms-db is not one of the target product editors in [`../../studio/plan.md`](../../studio/plan.md).
+No forms-db behavior/schema/Admin/API changes are planned in this goal. Only
+mechanical Service SDK/Wool consumer changes or regression fixes required for
+the shared nomenclature migration are in scope; the existing independent
+forms-db gates below remain owned here.
+
 ## SQL/constants cleanup — 2026-10-09
 
 Внутренние storage definitions перенесены из embedded
@@ -54,7 +62,7 @@ tests 2/2); `GOWORK=off GOTOOLCHAIN=go1.26.0 go test ./...`, `go build
 временных loopback-only Docker container с точными именами
 `liapoldus-v2-sql-20261006-{pg,mysql,maria}`; после проверки контейнеры и
 созданные ими anonymous data volumes удалены. Это повторяет DB conformance,
-но не закрывает Plugin SDK/Core cohort compatibility gate ниже.
+но не закрывает Service SDK/Core cohort compatibility gate ниже.
 
 Исполняемый `tests/integration/sql-multi-replica-cursor.test.ts` прошёл на
 PostgreSQL 16, MySQL 8.0 и MariaDB 11.4 (3/3) против отдельных временных Docker
@@ -101,7 +109,7 @@ endpoint или локальную имитацию Core fence.
 ## Проверка публикации — 2026-10-05
 
 Коммит `f6dac5b` опубликован в `origin/main`; hosted Ubuntu verify прошёл.
-После миграции на SDK `v2.0.0` и `pluginprotocol/v3 v3.0.0` полный local npm
+После миграции на SDK `v2.0.0` и `wool/v3 v3.0.0` полный local npm
 suite прошёл (20 файлов passed / 1 skipped; 33 tests passed / 3 DB-dependent
 skipped без DSN, Node cursor tests 2/2); `GOWORK=off` Go build/vet прошли.
 Локальные SQL-backed проверки и production Core→Server→forms-db на трёх DB
@@ -122,11 +130,11 @@ Linux/arm64 Go 1.26 container. Владелец утвердил для v1 до�
 OrbStack Ubuntu guest; отдельный bare-metal host не требуется.
 
 Дополнение 2026-10-04: unit-test name для проверки SQL settings validation
-переименован так, чтобы не смешивать Plugin SDK `Reload` lifecycle с удалённым
+переименован так, чтобы не смешивать Service SDK `Reload` lifecycle с удалённым
 protocol RPC `ConfigApply`. Targeted `go test ./tests/unit -run
 ^TestConfigurationValidationAcceptsSQLAdaptersAndValidatesTablePrefix$` прошёл.
 В cursor contract уточнено, что logical key для scoped grants управляется Core,
-а ключ не входит в plugin settings; `cursor-runtime.test.ts` прошёл.
+а ключ не входит в service settings; `cursor-runtime.test.ts` прошёл.
 Те же `cursor-runtime.test.ts` и SQL configuration unit test прошли в OrbStack
 Ubuntu 24.04.5 ARM64 (1/1 и 1/1).
 
@@ -187,68 +195,68 @@ mTLS Core fixture. Candidate DDL failure также прошёл на PostgreSQL
 отдавать прежние данные, временные identities удаляются после теста.
 Теперь отдельный production Core→Server→forms-db E2E также проходит: Core
 доставляет settings через SDK REST, а настоящий Server направляет HTTP
-`forms.submit` напрямую в настоящий forms-db по разрешённому pluginprotocol
+`forms.submit` напрямую в настоящий forms-db по разрешённому wool
 mTLS-вызову. Production Core→Server→forms-db SQL E2E прошёл на PostgreSQL 16,
 MySQL 8.0 и MariaDB 11.4; последний локальный прогон прошёл 3/3 и дополнительно
-проверил planned-downtime замену Core/plugin identities и всех trust roots:
+проверил planned-downtime замену Core/service identities и всех trust roots:
 новый CA сходится, старый отклоняется. Все три DSN включены в Core
 cross-repository CI. Linux runtime, hosted CI и release/version gate остаются
 открыты. Production readiness пока не заявляется.
 
-Этот файл содержит только задачи forms-db plugin. Единая граница версии и
+Этот файл содержит только задачи forms-db service. Единая граница версии и
 межрепозиторный план: [`tasks/README.md`](../../tasks/README.md). Product settings, capabilities,
 storage semantics, errors и vectors принадлежат этому
-репозиторию; lifecycle — [Plugin SDK](../../plugin-sdk/), peer transport —
-[`pluginprotocol`](../../pluginprotocol/).
+репозиторию; lifecycle — [Service SDK](../../service-sdk/), peer transport —
+[`wool`](../../wool/).
 
 ## Зафиксированная цель v1
 
-- Отдельный вручную запускаемый plugin для обработки простых форм; никаких
+- Отдельный вручную запускаемый service для обработки простых форм; никаких
   запусков/установок/рестартов со стороны Core.
-- Core сохраняет exact plugin settings JSON bytes в `active`/`previous`,
-  вызывает SDK REST `Reload(generation)`; plugin сам pull-ит named generation,
+- Core сохраняет exact service settings JSON bytes в `active`/`previous`,
+  вызывает SDK REST `Reload(generation)`; service сам pull-ит named generation,
   проверяет schema, строит candidate storage/config и после атомарного apply
   ACK-ает digest.
-- Plugin SDK REST — единственный Core↔plugin lifecycle. `pluginprotocol` может
-  только передавать generic caller-defined plugin↔plugin messages/streams; он
+- Service SDK REST — единственный Core↔service lifecycle. `wool` может
+  только передавать generic caller-defined service↔service messages/streams; он
   не содержит `forms.*`, ConfigSchema/ConfigApply, grants/settings lifecycle,
   manifests или формовых schemas.
 - Core SQLite не хранит submissions. Form data и product-owned storage
-  принадлежат forms-db; Core — plugin-agnostic и сохраняет только control-plane
+  принадлежат forms-db; Core — service-agnostic и сохраняет только control-plane
   metadata/config bytes.
-- Plugin settings, form schemas, validation, errors, query/filter/pagination,
+- Service settings, form schemas, validation, errors, query/filter/pagination,
   cursor format, CRUD actions и Admin Surface — только contracts этого repo.
 
 ## Зафиксированные product semantics
 
 - Повторное удаление отсутствующей записи даёт терминальный `not_found`.
-- Form values валидируются по активной plugin-owned schema до записи.
+- Form values валидируются по активной service-owned schema до записи.
 - Query pagination использует bounded keyset cursor, не offset scan; cursor не
   является авторизацией и не расширяет scope данных.
 - Cursor signing secret выдаётся call-scoped; DSN выдаётся по
   instance/revision-scoped grant, раскрытое значение остаётся только в памяти
   активного runtime generation и очищается при смене поколения/остановке.
-- Admin Surface предназначен для записей/операций plugin. Настройка общих
+- Admin Surface предназначен для записей/операций service. Настройка общих
   settings не осуществляется устаревшей control RPC-формой `ConfigSchema` /
   `ConfigApply`; она идёт через generic Core settings API.
 - Утверждённые v1 backends forms-db: SQLite, MySQL/MariaDB и PostgreSQL. Это
-  product storage плагина, а не Core dependency. Для каждого backend проверить
+  product storage сервиса, а не Core dependency. Для каждого backend проверить
   migrations, transactions, pool limits, persistence и backup/restore.
 
 ## P0 — миграция Core lifecycle
 
-- [x] Перенести `cmd/forms-db` на Plugin SDK registration/bootstrap, health,
+- [x] Перенести `cmd/forms-db` на Service SDK registration/bootstrap, health,
   readiness, `Reload`, exact config pull, digest ACK, metrics и structured logs.
 - [x] Добавить реальные per-replica mTLS listener/client identities и
   fail-closed verification. Child-process SDK suite проверяет anonymous,
   wrong-identity, revoked и недоверенные certificates; plaintext/bearer
   fallback отсутствует.
 - [x] Перенести ConfigSchema/ConfigApply settings parsing/application с
-  `pluginprotocol` в SDK plugin-owned schema/applier hooks; migrate runtime,
+  `wool` в SDK service-owned schema/applier hooks; migrate runtime,
   tests, fixtures, generated references и go.work imports как единый breaking
   slice.
 - [x] Удалить legacy gRPC lifecycle service, assets и tests после перехода
-  consumers на Plugin SDK REST; `pluginprotocol` оставлен только для generic
+  consumers на Service SDK REST; `wool` оставлен только для generic
   peer communication.
 - [x] Прекратить чтение product config из env/argv/config files. При недоступном
   Core/grant не применять фиктивные default DB credentials.
@@ -266,7 +274,7 @@ storage semantics, errors и vectors принадлежат этому
   `encoding/json` иначе принимает. Обязательные поля и schema constraints
   проверяются в `tests/contracts/settings.test.ts`, runtime decode — в
   `tests/contracts/strict-settings.test.ts`.
-- [x] DSN/cursor references остаются opaque для forms-db: plugin не разбирает
+- [x] DSN/cursor references остаются opaque для forms-db: service не разбирает
   scheme/path и проверяет их пригодность только через scoped SDK grant. Фактическая
   Core redemption проверена отдельными lifecycle tests; продуктовый settings
   contract не дублирует Core secret-source format.
@@ -281,7 +289,7 @@ storage semantics, errors и vectors принадлежат этому
   `tests/integration/child-process-sdk.test.ts` и fixture `child-process`.
 - [x] Child-process conformance доказывает, что invalid product schema и
   недоступный SQL endpoint в candidate settings не заменяют serving generation;
-  сценарии выполнены для SQLite, PostgreSQL, MySQL и MariaDB с Plugin SDK mTLS
+  сценарии выполнены для SQLite, PostgreSQL, MySQL и MariaDB с Service SDK mTLS
   fixture. Отдельный production Core E2E доказывает persistence/reconnect на
   всех трёх SQL backend.
 - [x] Отсутствующий scoped DSN grant отклоняет candidate без изменения active
@@ -305,7 +313,7 @@ storage semantics, errors и vectors принадлежат этому
   поддерживать в v1. Repository contract tests прошли на disposable PostgreSQL
   16, MySQL 8.0 и MariaDB 11.4; срез 2026-10-02 дополнительно закрывает и
   повторно открывает repository и проверяет строки и scoped delete после reopen.
-  Plugin-process restart и отказ DB в реальном Core→SDK→Server→forms-db
+  Service-process restart и отказ DB в реальном Core→SDK→Server→forms-db
   lifecycle закрыты сквозным SQL E2E ниже. Core backup/restore относится к
   Core CLI acceptance и проверяется отдельно.
 - [x] Зафиксировать и исполнять v1 resource limits в
@@ -328,14 +336,14 @@ storage semantics, errors и vectors принадлежат этому
 ## P2 — capabilities, grants и Admin Surface
 
 - [x] Проверить generic capability registration и route/action mapping без
-  protocol-defined `forms.*` messages. Plugin-owned manifest перечисляет ровно
+  protocol-defined `forms.*` messages. Service-owned manifest перечисляет ровно
   реализованные `forms.submit`, `forms.list`, `forms.delete`; generic peer
   registry регистрирует те же методы, а Admin Surface связывает query/delete
   только с объявленными capabilities. Evidence: `tests/contracts/settings.test.ts`,
   `tests/contracts/admin-surface.test.ts`, request vectors и child-process
   submit/list/delete сценарии.
 - [x] Применять caller identity allow-list на стороне forms-db через generic
-  `pluginprotocol` authorizer. Настройка v1 задаётся оператором через
+  `wool` authorizer. Настройка v1 задаётся оператором через
   `--peer-allowed-caller`; child-process suite доказывает успех разрешённого
   Server caller и отказ trusted-CA identity с другой URI до обработки payload.
   Core не имеет peer-policy API и не проксирует payload; централизованное
@@ -354,11 +362,11 @@ storage semantics, errors и vectors принадлежат этому
   `core/tests/integration/manual-core-server-sql.test.ts` (PostgreSQL 16,
   MySQL 8.0, MariaDB 11.4, 3/3).
 - [x] Сквозной stale/revoked identity отказ для cursor grant на
-  Core→Server→forms.list: active generation 3, plugin остаётся на generation 2
-  при недоступном Reload endpoint; затем Core CRL отзывает plugin client
+  Core→Server→forms.list: active generation 3, service остаётся на generation 2
+  при недоступном Reload endpoint; затем Core CRL отзывает service client
   certificate, и реальный scoped-grant request из `forms.list` не проходит
   mTLS. Server возвращает только `503 storage_unavailable`, после возврата
-  trust policy Core/plugin сходятся и `forms.list` возвращает 200. Проверено
+  trust policy Core/service сходятся и `forms.list` возвращает 200. Проверено
   `core/tests/integration/manual-core-server.test.ts` (1/1) и
   `core/tests/integration/manual-core-server-sql.test.ts` (3/3 на PostgreSQL 16,
   MySQL 8.0, MariaDB 11.4). Это отказ отозванной workload identity на grant
@@ -368,7 +376,7 @@ storage semantics, errors и vectors принадлежат этому
   payload не сохраняется, последующий authorized list возвращает пустой набор.
   Проверено реальным child process в
   `tests/integration/child-process-sdk.test.ts`.
-- [x] Доверенная по CA, но не allow-listed plugin identity отвергается до
+- [x] Доверенная по CA, но не allow-listed service identity отвергается до
   обработки `forms.list` и `forms.delete`, как и `forms.submit`; проверяется
   настоящий child process и generic peer authorizer в
   `tests/integration/child-process-sdk.test.ts`.
@@ -402,7 +410,7 @@ storage semantics, errors и vectors принадлежат этому
 - [x] Параллельный ConfigApply не закрывает repository, пока выполняется
   invocation, начатый на старом поколении; после завершения вызова candidate
   атомарно становится обслуживающим. Доказано через настоящий
-  `restplugin.Adapter` в `tests/fixtures/reload-concurrency` и
+  `restservice.Adapter` в `tests/fixtures/reload-concurrency` и
   `tests/integration/reload-concurrency.test.ts`; `go run -race` тоже прошёл.
 - [x] Актуальный Core→Server→forms-db ручной memory walkthrough повторно прошёл
   в Linux/arm64 Go 1.26 container 2026-10-04; submit/list/Admin Surface, cursor
@@ -410,21 +418,21 @@ storage semantics, errors и vectors принадлежат этому
   generic Core grant tests уже покрывают replica, active generation, purpose,
   one-use redemption и redaction. Child-process SDK fixture подтверждает
   отдельный grant на каждый forms.list и отказ повторного redemption уже
-  потраченного handle по mTLS. Signing keys не хранятся в plugin DB.
+  потраченного handle по mTLS. Signing keys не хранятся в service DB.
 - [x] DSN grant lifecycle: Core связывает выдачу с replica, exact active
   generation, configured reference и purpose и допускает одно redemption;
   forms-db redeem-ит secret при подготовке candidate repository, вызывает
   `Destroy`, очищает временный DSN и не сохраняет plaintext в active settings.
   Отказ grant/connection/schema не меняет serving generation. Проверено
-  `core/tests/integration/plugin-secret-grants.test.ts`,
+  `core/tests/integration/service-secret-grants.test.ts`,
   `tests/integration/child-process-sdk.test.ts` и SQL child-process cases.
 - [x] Реализовать product Admin Surface для list/pagination/delete без отдельного
-  plugin admin listener. Страница требует read+write permissions, delete имеет
+  service admin listener. Страница требует read+write permissions, delete имеет
   подтверждение и row mapping; повторное удаление отсутствующей записи явно
   возвращает non-retryable `not_found`. Runtime покрыт
   `tests/integration/child-process-sdk.test.ts` и
   `tests/integration/admin-surface-sdk.test.ts`; management authorization/audit
-  остаются ответственностью Core и Plugin SDK.
+  остаются ответственностью Core и Service SDK.
 - [x] Подтвердить end-to-end Core audit/redaction повторённых Admin Actions:
   manual Core→Server→forms-db E2E дважды выполняет query и delete через Core,
   проверяет результат каждого вызова, по одной audit-записи на каждый принятый
@@ -453,9 +461,9 @@ storage semantics, errors и vectors принадлежат этому
   отклоняет дублирующиеся members, case-fold collision верхнего уровня и
   trailing document как `validation_failed`. Contract-векторы исполняются
   реальным forms-db peer handler в `tests/integration/peer-list-cursor.test.ts`.
-  Generic Server HTTP envelope может содержать opaque cookie context; forms-db
-  извлекает только `body`, не интерпретируя и не сохраняя context values.
-  Проверено child fixture с cookie marker в
+  Generic Server HTTP envelope может содержать opaque cookie context и typed
+  `parameters`; forms-db извлекает только `body`, не интерпретируя и не сохраняя
+  context values. Child fixture с cookie marker и typed parameters проверен в
   `tests/integration/peer-dispatch.test.ts` и production Core→Server→forms-db
   E2E в `core/tests/integration/manual-core-server.test.ts`; SQL-backed variant
   также утверждает payload/cookie redaction на PostgreSQL, MySQL и MariaDB
@@ -506,7 +514,7 @@ storage semantics, errors и vectors принадлежат этому
 - [x] Production Core→Server→forms-db child-process walkthrough подтвердил,
   что marker прямого `forms.submit` отсутствует в Core stdout/stderr, durable
   SQLite/WAL и сохранённых audit-полях: `core/tests/integration/manual-core-server.test.ts`.
-- [x] Два отдельных forms-db процесса проходят Plugin SDK mTLS health/readiness,
+- [x] Два отдельных forms-db процесса проходят Service SDK mTLS health/readiness,
   разделяют SQLite storage и per-call logical cursor key; успешный cursor
   continuation не требует sticky routing. Одна replica применяет generation 2,
   вторая остаётся ready на generation 1; их runtime-schema ответы подтверждают
@@ -523,7 +531,7 @@ storage semantics, errors и vectors принадлежат этому
   проверяет runtime result.
 - [x] Runtime-conformance inventory versioned vectors закрыта: request JSON,
   submit-negative и delete-negative vectors выполняются через настоящий
-  child-process plugin с загруженными settings/SDK lifecycle; Admin Surface
+  child-process service с загруженными settings/SDK lifecycle; Admin Surface
   mapping vector проходит как SDK Admin Action; cursor/replica vectors
   проверяются runtime-handler и двумя независимыми mTLS processes. Schema-only
   проверки остаются отдельной проверкой формы контракта, не подменяя runtime.
@@ -536,20 +544,20 @@ storage semantics, errors и vectors принадлежат этому
 
 ## Не входит в v1
 
-CAPTCHA, Identity/OIDC/OAuth, Core-managed plugin install/update или process
+CAPTCHA, Identity/OIDC/OAuth, Core-managed service install/update или process
 management, Docker/Compose/Swarm/Kubernetes,
 protocol-defined forms methods, Core-specific storage/backends. Эти функции не
 добавлять в contracts, schema, dependencies или binary.
 
 ## V3 — replica/SQL compatibility и website/content
 
-В v2 `plugins/forms-db/` не изменяется: текущая v1 simple-forms функция служит
+В v2 `services/forms-db/` не изменяется: текущая v1 simple-forms функция служит
 только regression baseline, а generic Core/SDK rollout проверяется на fixtures.
 Нижеследующие ранее записанные v2 задачи перенесены в v3. Выполненные проверки
 сохранены как технические evidence; они не подтверждают поддержку multi-host
 storage, release-cohort compatibility или production readiness.
 
-- [ ] Перейти на Plugin SDK self-registration/lease и versioned peer-directory;
+- [ ] Перейти на Service SDK self-registration/lease и versioned peer-directory;
   объявлять SemVer/digest, совместимость config schema, storage schema и
   product peer contracts. Gate: новая incarnation, loss/return replica,
   Core restart и двухкогортный rolling/canary без replay.
@@ -588,17 +596,17 @@ storage, release-cohort compatibility или production readiness.
 
 ### Website и редактирование контента
 
-Целевая идея и границы владельцев описаны в [документации forms-db](docs/site/plugins/forms-db.md#направление-развития-в-v3-website-и-редактор-содержимого)
+Целевая идея и границы владельцев описаны в [документации forms-db](docs/site/services/forms-db.md#направление-развития-в-v3-website-и-редактор-содержимого)
 и агрегированы в [Core roadmap](https://liapoldus.github.io/core/architecture/v1-migration-roadmap#v3-forms-db-website-и-управление-контентом). Это отдельная
 работа после v2 rollout; не добавлять её в v1/v2 contracts, acceptance, зависимости
 или binary.
 
-- [ ] Спроектировать forms-db как plugin-owned website/content service поверх
+- [ ] Спроектировать forms-db как service-owned website/content service поверх
   текущего storage ownership; определить связь content model с существующими
   forms и site identifiers.
 - [ ] Спроектировать административный UI и отдельный endpoint/port: bind
   address, TLS/mTLS или иная внешняя граница, сетевые ACL, публикация за Server
-  plugin или прямой listener, защита от случайной публичной экспозиции.
+  service или прямой listener, защита от случайной публичной экспозиции.
 - [ ] Определить principal/role lifecycle, роли и permissions, provisioning,
   credential/session model, recovery и audit; не считать v1
   v1 `platform-admin`/Admin Surface готовым решением.
@@ -606,28 +614,28 @@ storage, release-cohort compatibility или production readiness.
   ограничить отображаемые и изменяемые поля явной product schema/metadata,
   определить версионирование и безопасный fallback при несовместимых схемах.
 - [ ] Определить формат сайта и разделение публичных и административных
-  маршрутов; решить, кто обслуживает публичный сайт — Server plugin или
+  маршрутов; решить, кто обслуживает публичный сайт — Server service или
   forms-db — и как передаются immutable releases, `current`/`previous` и
   rollback.
 - [ ] Описать versioned settings, content/action contracts, schema evolution,
-  migrations и concurrency/CAS semantics; Core остаётся plugin-agnostic и
+  migrations и concurrency/CAS semantics; Core остаётся service-agnostic и
   принимает только generic settings schema.
 - [ ] Определить lifecycle сохранения/публикации контента, backup/restore,
   retention, limits, failure recovery и поведение при недоступности storage.
 - [ ] Добавить security threat model, abuse/resource limits, redaction/audit
   правила и негативные conformance scenarios до реализации.
-- [ ] Проверить сквозной путь Core → Plugin SDK → forms-db и интеграцию с Server
-  без изменения `pluginprotocol` в сторону product-specific методов.
+- [ ] Проверить сквозной путь Core → Service SDK → forms-db и интеграцию с Server
+  без изменения `wool` в сторону product-specific методов.
 
 ### Решения, требуемые до реализации v3
 
 - [ ] Подтвердить, является ли website/content режим расширением `forms-db` или
-  отдельным plugin product; не смешивать его с отправками форм без явного
+  отдельным service product; не смешивать его с отправками форм без явного
   ownership contract.
 - [ ] Выбрать владельца публичного HTTP listener-а и site release lifecycle:
-  Server plugin, forms-db либо согласованный split между ними.
+  Server service, forms-db либо согласованный split между ними.
 - [ ] Уточнить, означает ли «отдельный порт» отдельный listener самого forms-db
-  или отдельный listener Server plugin, и какие сетевые источники могут его
+  или отдельный listener Server service, и какие сетевые источники могут его
   достигать.
 - [ ] Выбрать authN/authZ модель админ-панели, способ первичного provisioning и
   требуемые роли/права.

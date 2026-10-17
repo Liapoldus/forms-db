@@ -5,12 +5,12 @@ import test from 'node:test';
 
 const cursorSource = readFileSync('internal/infrastructure/security/cursor.go', 'utf8');
 const cursorContract = readContract('cursor.json');
-const peerSource = readFileSync('internal/presentation/peerplugin/list.go', 'utf8');
-const restSource = readFileSync('internal/presentation/restplugin/adapter.go', 'utf8');
-const runtimeSource = readFileSync('internal/presentation/restplugin/runtime.go', 'utf8');
+const peerSource = readFileSync('internal/presentation/peerservice/list.go', 'utf8');
+const restSource = readFileSync('internal/presentation/restservice/adapter.go', 'utf8');
+const runtimeSource = readFileSync('internal/presentation/restservice/runtime.go', 'utf8');
 const mainSource = readFileSync('cmd/forms-db/main.go', 'utf8');
 
-await test('cursor signing key is obtained per call through Plugin SDK, never from plugin environment', () => {
+await test('cursor signing key is obtained per call through Service SDK, never from service environment', () => {
   assert.equal('keyFileEnvironment' in cursorContract, false);
   assert.equal(cursorContract.grantCapability, 'forms.list');
   assert.equal(cursorContract.grantPurpose, 'cursor-signing');
@@ -25,7 +25,7 @@ await test('cursor signing key is obtained per call through Plugin SDK, never fr
 
 await test('application DSN stays an opaque reference through Reload and is redeemed for candidate only', () => {
   const settings = readContract('secrets.json');
-  assert.equal(settings.dsnDelivery, 'plugin-sdk-generation-scoped-grant');
+  assert.equal(settings.dsnDelivery, 'service-sdk-generation-scoped-grant');
   assert.equal(settings.sdkGrantScope, 'candidate-generation');
   assert.equal(settings.rawSecretInReload, false);
   assert.match(restSource, /settings\.DSNReference/);

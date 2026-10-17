@@ -15,7 +15,7 @@ type Contracts = {
  'list-errors.json': typeof import('../../contracts/v1/list-errors.json');
  'list-request.schema.json': typeof import('../../contracts/v1/list-request.schema.json');
  'list-response.schema.json': typeof import('../../contracts/v1/list-response.schema.json');
- 'plugin.json': typeof import('../../contracts/v1/plugin.json');
+ 'service.json': typeof import('../../contracts/v1/service.json');
  'request-json-vectors.json': typeof import('../../contracts/v1/request-json-vectors.json');
  'runtime-limits.json': typeof import('../../contracts/v1/runtime-limits.json');
  'secrets.json': typeof import('../../contracts/v1/secrets.json');

@@ -5,9 +5,9 @@ func CursorReplicaVectors() any {
 		"version": 1,
 		"semantics": map[string]any{
 			"keyDistribution":         "Every replica receives the same current Core-managed logical key in its per-call forms.list grant.",
-			"rotation":                "Core replaces the logical key for subsequent grants; the plugin keeps no previous-key fallback, so cursors issued with the old key are rejected after rotation.",
+			"rotation":                "Core replaces the logical key for subsequent grants; the service keeps no previous-key fallback, so cursors issued with the old key are rejected after rotation.",
 			"replicaFailure":          "Failure to redeem a cursor grant fails that forms.list call closed as storage_unavailable and does not affect another replica.",
-			"settingsRevisionBinding": "Cursor claims are bound to site, schemaName, and equality filter, not to a settings revision; cursor signing keys are retrieved per call and are not included in plugin settings.",
+			"settingsRevisionBinding": "Cursor claims are bound to site, schemaName, and equality filter, not to a settings revision; cursor signing keys are retrieved per call and are not included in service settings.",
 			"replay":                  "A valid, unexpired cursor is a reusable read-only continuation token. Repeating it with the same scope repeats the page query; it is not a one-use grant. Every invocation still obtains its own scoped signing-key grant.",
 			"tokenVersion":            "A token version other than the configured version is rejected as validation_failed.",
 		},

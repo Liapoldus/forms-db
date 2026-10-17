@@ -14,7 +14,7 @@ func TestGeneratedInventoryAndBytes(t *testing.T) {
 	if err := run(true, root); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(root, "v1", "plugin.json"), []byte("{}\n"), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(root, "v1", "service.json"), []byte("{}\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if err := run(true, root); err == nil {

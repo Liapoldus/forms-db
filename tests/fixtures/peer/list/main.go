@@ -15,10 +15,10 @@ import (
 	"github.com/Liapoldus/forms-db/internal/infrastructure/config"
 	"github.com/Liapoldus/forms-db/internal/infrastructure/security"
 	"github.com/Liapoldus/forms-db/internal/infrastructure/storage/memory"
-	"github.com/Liapoldus/forms-db/internal/presentation/peerplugin"
-	"github.com/Liapoldus/forms-db/internal/presentation/restplugin"
-	sdkmodels "github.com/Liapoldus/plugin-sdk/v2/domain/models"
-	"github.com/Liapoldus/pluginprotocol/v3/presentation/peer"
+	"github.com/Liapoldus/forms-db/internal/presentation/peerservice"
+	"github.com/Liapoldus/forms-db/internal/presentation/restservice"
+	sdkmodels "github.com/Liapoldus/service-sdk/v2/domain/models"
+	"github.com/Liapoldus/wool/v3/presentation/peer"
 )
 
 type secretSource struct {
@@ -69,7 +69,7 @@ func main() {
 	secondSecrets := &secretSource{}
 	firstHandler := newHandler(sharedRepository, firstSecrets, settings)
 	secondHandler := newHandler(sharedRepository, secondSecrets, settings)
-	invoke := func(handler *peerplugin.Handler, method string, body []byte) response {
+	invoke := func(handler *peerservice.Handler, method string, body []byte) response {
 		call := peer.Call{Method: peer.Method(method), Payload: body}
 		serve, err := handler.PrepareCall(context.Background(), peer.PeerIdentity{URI: "spiffe://example/server"}, call)
 		if err != nil {
@@ -209,8 +209,8 @@ func main() {
 	support.Written(fmt.Println(string(encoded)))
 }
 
-func newHandler(repository interfaces.Repository, secrets *secretSource, settings []byte) *peerplugin.Handler {
-	active, err := restplugin.New(application.Service{Repository: memory.New()}, func(context.Context, config.Settings) (interfaces.Repository, error) {
+func newHandler(repository interfaces.Repository, secrets *secretSource, settings []byte) *peerservice.Handler {
+	active, err := restservice.New(application.Service{Repository: memory.New()}, func(context.Context, config.Settings) (interfaces.Repository, error) {
 		return repository, nil
 	}, nil)
 	if err != nil {
@@ -220,7 +220,7 @@ func newHandler(repository interfaces.Repository, secrets *secretSource, setting
 	if err != nil || active.Apply(context.Background(), configuration) != nil {
 		panic("active schema unavailable")
 	}
-	handler, err := peerplugin.New(active, secrets, peer.AllowAll{})
+	handler, err := peerservice.New(active, secrets, peer.AllowAll{})
 	if err != nil {
 		panic(err)
 	}

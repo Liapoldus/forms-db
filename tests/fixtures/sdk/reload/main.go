@@ -14,11 +14,11 @@ import (
 	"github.com/Liapoldus/forms-db/internal/domain/interfaces"
 	"github.com/Liapoldus/forms-db/internal/infrastructure/config"
 	"github.com/Liapoldus/forms-db/internal/infrastructure/storage/memory"
-	"github.com/Liapoldus/forms-db/internal/presentation/restplugin"
-	sdkinterfaces "github.com/Liapoldus/plugin-sdk/v2/domain/interfaces"
-	sdkmodels "github.com/Liapoldus/plugin-sdk/v2/domain/models"
-	sdkinfra "github.com/Liapoldus/plugin-sdk/v2/infrastructure"
-	sdkpresentation "github.com/Liapoldus/plugin-sdk/v2/presentation"
+	"github.com/Liapoldus/forms-db/internal/presentation/restservice"
+	sdkinterfaces "github.com/Liapoldus/service-sdk/v2/domain/interfaces"
+	sdkmodels "github.com/Liapoldus/service-sdk/v2/domain/models"
+	sdkinfra "github.com/Liapoldus/service-sdk/v2/infrastructure"
+	sdkpresentation "github.com/Liapoldus/service-sdk/v2/presentation"
 )
 
 type source struct {
@@ -55,7 +55,7 @@ func main() {
 	}
 	configurationSource := &source{document: document}
 	secretBroker := &broker{}
-	active, err := restplugin.New(application.Service{Repository: memory.New()}, func(_ context.Context, settings config.Settings) (interfaces.Repository, error) {
+	active, err := restservice.New(application.Service{Repository: memory.New()}, func(_ context.Context, settings config.Settings) (interfaces.Repository, error) {
 		if settings.Driver != "postgres" || string(settings.DSN) != "postgresql://private-dsn" {
 			panic("candidate does not have scoped DSN")
 		}
@@ -68,7 +68,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	handler, lifecycle, _, err := restplugin.NewHandler(active, restplugin.LifecycleOptions{
+	handler, lifecycle, _, err := restservice.NewHandler(active, restservice.LifecycleOptions{
 		Source: configurationSource, Broker: secretBroker, Identity: identity, LogOutput: io.Discard,
 		AdminSurface: testAdminSurface{}, AdminActions: testAdminActions{},
 	})
@@ -86,7 +86,7 @@ func main() {
 	reload, fixtureErr := json.Marshal(sdkmodels.Reload{Generation: document.Generation, SHA256: document.SHA256, SchemaVersion: document.SchemaVersion})
 	support.Check(fixtureErr)
 	request := httptest.NewRequestWithContext(context.Background(), endpoint.Method, endpoint.Path, bytes.NewReader(reload))
-	request.Header.Set("content-type", contract.Plugin.ReloadRequest.MediaType)
+	request.Header.Set("content-type", contract.Service.ReloadRequest.MediaType)
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
 	var acknowledgement sdkmodels.ReloadAcknowledgement

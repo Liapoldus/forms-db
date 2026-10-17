@@ -15,7 +15,7 @@ import (
 func TestRuntimeContractValuesHaveOneCodeOwner(t *testing.T) {
 	root, err := filepath.Abs(filepath.Join("..", ".."))
 	if err != nil {
-		t.Fatal("resolve plugin repository root")
+		t.Fatal("resolve service repository root")
 	}
 	data, err := os.ReadFile("../v1/cursor.json")
 	if err != nil {

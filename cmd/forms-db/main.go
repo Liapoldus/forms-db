@@ -20,11 +20,11 @@ import (
 	"github.com/Liapoldus/forms-db/internal/infrastructure/config"
 	"github.com/Liapoldus/forms-db/internal/infrastructure/storage/memory"
 	"github.com/Liapoldus/forms-db/internal/infrastructure/storage/sqlstore"
-	"github.com/Liapoldus/forms-db/internal/presentation/peerplugin"
-	"github.com/Liapoldus/forms-db/internal/presentation/restplugin"
-	sdkmodels "github.com/Liapoldus/plugin-sdk/v2/domain/models"
-	sdkinfra "github.com/Liapoldus/plugin-sdk/v2/infrastructure"
-	"github.com/Liapoldus/pluginprotocol/v3/presentation/peer"
+	"github.com/Liapoldus/forms-db/internal/presentation/peerservice"
+	"github.com/Liapoldus/forms-db/internal/presentation/restservice"
+	sdkmodels "github.com/Liapoldus/service-sdk/v2/domain/models"
+	sdkinfra "github.com/Liapoldus/service-sdk/v2/infrastructure"
+	"github.com/Liapoldus/wool/v3/presentation/peer"
 )
 
 type options struct {
@@ -113,17 +113,17 @@ func run(args []string) (runErr error) {
 		return err
 	}
 	stage = "product-runtime"
-	active, err := restplugin.New(application.Service{Repository: memory.New()}, buildRepository, nil)
+	active, err := restservice.New(application.Service{Repository: memory.New()}, buildRepository, nil)
 	if err != nil {
 		return err
 	}
 	stage = "peer-handler"
-	peerHandler, err := peerplugin.New(active, active, callerAuthorizer{uri: settings.peerCaller})
+	peerHandler, err := peerservice.New(active, active, callerAuthorizer{uri: settings.peerCaller})
 	if err != nil {
 		return err
 	}
 	stage = "sdk-rest-server"
-	server, _, _, err := restplugin.NewMutualTLSServer(active, restplugin.LifecycleOptions{
+	server, _, _, err := restservice.NewMutualTLSServer(active, restservice.LifecycleOptions{
 		Source: source, Broker: broker, Identity: identity, Credentials: credentials,
 		CorePeer: coreClientPeer, Revocation: revocation,
 		ErrorLog: log.New(io.Discard, "", 0), LogOutput: os.Stdout,

@@ -1,5 +1,5 @@
-// Package restplugin adapts the Plugin SDK lifecycle to forms-db.
-package restplugin
+// Package restservice adapts the Service SDK lifecycle to forms-db.
+package restservice
 
 import (
 	"context"
@@ -11,7 +11,7 @@ import (
 	"github.com/Liapoldus/forms-db/internal/application"
 	"github.com/Liapoldus/forms-db/internal/domain/interfaces"
 	"github.com/Liapoldus/forms-db/internal/infrastructure/config"
-	sdkmodels "github.com/Liapoldus/plugin-sdk/v2/domain/models"
+	sdkmodels "github.com/Liapoldus/service-sdk/v2/domain/models"
 )
 
 var ErrInvalidSettings = errors.New("invalid forms-db settings")
@@ -22,13 +22,13 @@ var ErrStorageUnavailable = errors.New("forms-db storage unavailable")
 // usable repository to the caller.
 type RepositoryBuilder func(context.Context, config.Settings) (interfaces.Repository, error)
 
-// SecretProvider redeems one generation-scoped secret through the Plugin SDK.
+// SecretProvider redeems one generation-scoped secret through the Service SDK.
 // The caller owns and destroys the returned value after the candidate is built.
 type SecretProvider interface {
 	SecretProvider(context.Context, string, string) (sdkmodels.SecretValue, error)
 }
 
-// Adapter owns the product state. The Plugin SDK sees only its opaque metadata
+// Adapter owns the product state. The Service SDK sees only its opaque metadata
 // and ConfigurationApplier interface, never its driver, schema or DSN.
 type Adapter struct {
 	mu         sync.RWMutex
@@ -80,7 +80,7 @@ func (adapter *Adapter) SecretProvider(ctx context.Context, reference, purpose s
 }
 
 func (adapter *Adapter) Manifest(context.Context) ([]byte, error) {
-	return contracts.PluginManifest()
+	return contracts.ServiceManifest()
 }
 
 func (adapter *Adapter) ConfigurationSchema(context.Context) ([]byte, error) {

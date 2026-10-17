@@ -14,8 +14,8 @@ import (
 	"github.com/Liapoldus/forms-db/internal/domain/interfaces"
 	"github.com/Liapoldus/forms-db/internal/domain/models"
 	"github.com/Liapoldus/forms-db/internal/infrastructure/config"
-	"github.com/Liapoldus/forms-db/internal/presentation/restplugin"
-	sdkmodels "github.com/Liapoldus/plugin-sdk/v2/domain/models"
+	"github.com/Liapoldus/forms-db/internal/presentation/restservice"
+	sdkmodels "github.com/Liapoldus/service-sdk/v2/domain/models"
 )
 
 type repository struct {
@@ -62,7 +62,7 @@ func main() {
 	old := newRepository("old")
 	candidate := newRepository("candidate")
 	built := make(chan struct{})
-	active, err := restplugin.New(application.Service{Repository: old}, func(context.Context, config.Settings) (interfaces.Repository, error) {
+	active, err := restservice.New(application.Service{Repository: old}, func(context.Context, config.Settings) (interfaces.Repository, error) {
 		close(built)
 		return candidate, nil
 	}, nil)

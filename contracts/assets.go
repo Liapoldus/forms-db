@@ -13,7 +13,7 @@ func Documents() (map[string][]byte, error) {
 	for name, value := range definition.Documents() {
 		contents, err := json.MarshalIndent(value, "", "  ")
 		if err != nil {
-			return nil, ErrInvalidPluginContract
+			return nil, ErrInvalidServiceContract
 		}
 		files[name] = append(contents, '\n')
 	}
@@ -23,11 +23,11 @@ func Documents() (map[string][]byte, error) {
 func Document(name string) ([]byte, error) {
 	value, ok := definition.Documents()[name]
 	if !ok {
-		return nil, ErrInvalidPluginContract
+		return nil, ErrInvalidServiceContract
 	}
 	contents, err := json.MarshalIndent(value, "", "  ")
 	if err != nil {
-		return nil, ErrInvalidPluginContract
+		return nil, ErrInvalidServiceContract
 	}
 	return append(contents, '\n'), nil
 }

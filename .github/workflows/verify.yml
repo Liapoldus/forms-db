@@ -60,51 +60,51 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     steps:
-      # forms-db consumes pluginprotocol and the Plugin SDK through sibling
-      # replace directives (../../pluginprotocol, ../../plugin-sdk), so the
+      # forms-db consumes wool and the Service SDK through sibling
+      # replace directives (../../wool, ../../service-sdk), so the
       # checkouts must mirror the workspace layout the module declares.
       - uses: actions/checkout@v4
         with:
-          path: plugins/forms-db
-      - name: Checkout pluginprotocol
+          path: services/forms-db
+      - name: Checkout wool
         uses: actions/checkout@v4
         with:
-          repository: Liapoldus/pluginprotocol
-          path: pluginprotocol
-      - name: Checkout plugin-sdk
+          repository: Liapoldus/wool
+          path: wool
+      - name: Checkout service-sdk
         uses: actions/checkout@v4
         with:
-          repository: Liapoldus/plugin-sdk
-          path: plugin-sdk
-      # The child-process scenario starts the real Server plugin as its child and
+          repository: Liapoldus/service-sdk
+          path: service-sdk
+      # The child-process scenario starts the real Server service as its child and
       # resolves it as the sibling ../server, so the Server checkout is part of
       # this gate rather than an optional extra.
       - name: Checkout server
         uses: actions/checkout@v4
         with:
           repository: Liapoldus/server
-          path: plugins/server
+          path: services/server
       - uses: actions/setup-go@v6
         with:
-          go-version-file: plugins/forms-db/go.mod
+          go-version-file: services/forms-db/go.mod
       # Node >= 22.6 is required: the cursor-secret-grants contract runs a .ts
       # file directly through `node --test`, which needs native type stripping.
       - uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: npm
-          cache-dependency-path: plugins/forms-db/package-lock.json
+          cache-dependency-path: services/forms-db/package-lock.json
       - name: Go build
         run: go build ./...
-        working-directory: plugins/forms-db
+        working-directory: services/forms-db
       - name: Go vet
         run: go vet ./...
-        working-directory: plugins/forms-db
+        working-directory: services/forms-db
       - name: Go tests
         run: go test ./...
-        working-directory: plugins/forms-db
+        working-directory: services/forms-db
       # The suite drives real mTLS config pulls, peer dispatch and a SQLite
       # child process, so it is the behavioural gate and not a mock-level check.
       - name: TypeScript contract suite
         run: npm ci && npm test
-        working-directory: plugins/forms-db
+        working-directory: services/forms-db

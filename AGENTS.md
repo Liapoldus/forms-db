@@ -1,35 +1,35 @@
-# AGENTS.md — forms-db plugin
+# AGENTS.md — forms-db service
 
 ## Назначение
 
-`plugins/forms-db/` — автономный product plugin простых форм. Он владеет
+`services/forms-db/` — автономный product service простых форм. Он владеет
 form schemas, submission records, продуктовым validation/filter/cursor
 поведением и собственным storage adapter. Core управляет только generic
-plugin instance/configuration/endpoint/policy; Server plugin обслуживает HTTP
-и вызывает forms-db только по явно разрешённому plugin↔plugin контракту.
+service instance/configuration/endpoint/policy; Server service обслуживает HTTP
+и вызывает forms-db только по явно разрешённому service↔service контракту.
 
 ## Архитектурные границы
 
-- Общий Core↔plugin lifecycle — только Plugin SDK REST с per-replica mTLS:
-  Core уведомляет `Reload(generation)`, plugin запрашивает exact config
+- Общий Core↔service lifecycle — только Service SDK REST с per-replica mTLS:
+  Core уведомляет `Reload(generation)`, service запрашивает exact config
   generation сам, валидирует/применяет и подтверждает digest. Не получать
   settings из env/argv/application config files.
-- Каждый forms-db binary обязан собираться через Plugin SDK `HandlerSet`.
+- Каждый forms-db binary обязан собираться через Service SDK `HandlerSet`.
   Универсальные `GET /healthz` и `GET /metrics` реализуются только SDK; forms-db
   не добавляет собственные handlers, маршруты или response shapes для этих
   endpoints.
-- После SDK миграции убрать из forms-db `pluginprotocol` lifecycle RPCs
+- После SDK миграции убрать из forms-db `wool` lifecycle RPCs
   (`Bootstrap`, `Manifest`, `ConfigSchema`, `ConfigApply`, `Shutdown` и
   аналогичные control methods). Не сохранять fallback/compatibility API.
-- `pluginprotocol` разрешён только как generic transport для вызовов/streams
-  между plugins. Его код не знает `forms.*`, settings/schema, DB driver,
+- `wool` разрешён только как generic transport для вызовов/streams
+  между services. Его код не знает `forms.*`, settings/schema, DB driver,
   cursor policy или forms errors. Все продуктовые contracts и payloads живут
-  только в `contracts/v1/` этого plugin.
+  только в `contracts/v1/` этого service.
 - Не добавлять forms-specific ветви, schema decoding или SQL/storage знание в
-  Core, Plugin SDK или `pluginprotocol`.
-- Общие settings настраиваются Core API; plugin Admin Surface описывает только
+  Core, Service SDK или `wool`.
+- Общие settings настраиваются Core API; service Admin Surface описывает только
   product-owned data/actions и не реализует настройки через lifecycle RPC.
-- V1 запускается оператором вручную; plugin не устанавливает, запускает,
+- V1 запускается оператором вручную; service не устанавливает, запускает,
   рестартует, масштабирует и не удаляет workloads. В v2 forms-db repository и
   product runtime не изменяются: текущая v1 функция служит только regression
   baseline, а generic lifecycle/rollout проверяется на fixtures. Replica/SQL
@@ -40,8 +40,8 @@ plugin instance/configuration/endpoint/policy; Server plugin обслужива�
 
 ## Конфигурация, данные и secrets
 
-- Plugin config — собственный JSON object и собственная строгая JSON Schema.
-  Core сохраняет точные исходные bytes в `active`/`previous`; plugin их
+- Service config — собственный JSON object и собственная строгая JSON Schema.
+  Core сохраняет точные исходные bytes в `active`/`previous`; service их
   проверяет, не требует общей Core schema формы и не раскрывает значения.
 - DSN/credentials задаются opaque references. Настоящее значение приходит
   только из scoped SDK grant после Reload, остаётся в памяти на время нужного
@@ -51,7 +51,7 @@ plugin instance/configuration/endpoint/policy; Server plugin обслужива�
   service для Core и не удалять существующий forms adapter без owner decision и
   migration/recovery evidence.
 - Утверждённые v1 backends forms-db: SQLite, MySQL/MariaDB и PostgreSQL. Это
-  product storage плагина, а не Core dependency. Core остаётся SQLite-only.
+  product storage сервиса, а не Core dependency. Core остаётся SQLite-only.
 - Cursor secret выдаётся call-scoped grant; cursor bounded, integrity-protected
   и привязан к product query context. Не сохранять grant/cursor key или
   plaintext secret в долговременном storage.
@@ -61,7 +61,7 @@ plugin instance/configuration/endpoint/policy; Server plugin обслужива�
 
 ## Структура и качество
 
-- Следуй четырёхслойной структуре существующего plugin; не добавляй новые
+- Следуй четырёхслойной структуре существующего service; не добавляй новые
   layers для симметрии. Domain не зависит от Caddy/SQLite/MySQL/protocol.
 - Contracts — source of truth; не дублировать error codes, schema defaults или
   JSON fields в нескольких слоях. SQL statements должны иметь очевидного owner
@@ -84,6 +84,15 @@ plugin instance/configuration/endpoint/policy; Server plugin обслужива�
 - Общий Core lifecycle описывает Core; этот репозиторий описывает только
   forms-db-owned behavior и ссылается на опубликованные Core/SDK pages.
 
+## Граница плана Studio
+
+В согласованном `studio/plan.md` Server/Echo — целевые сервисы конфигуратора;
+forms-db не входит в продуктовый scope этого среза. Разрешены только
+обязательные mechanical changes общих Service SDK/Wool contracts и regression
+fixes, если их доказанно требует cross-repository compilation. Не добавлять
+новые forms-db product settings, Admin Surface или API features в рамках цели
+Studio.
+
 ## Процесс и проверки
 
 - Перед работой проверить branch/HEAD/status/remotes и diff; сохранить всю
@@ -92,7 +101,7 @@ plugin instance/configuration/endpoint/policy; Server plugin обслужива�
   implementation → child-process/conformance test. Не ослаблять уже зелёные
   gates ради реализации.
 - Перед завершённым handoff выполнить `go test ./...`, `go build ./...`,
-  `go vet ./...`, plugin TypeScript tests и Core/SDK child-process conformance
+  `go vet ./...`, service TypeScript tests и Core/SDK child-process conformance
   для реально интегрированных путей. Если внешняя зависимость блокирует тест,
   перечислить это как OPEN.
 - Обновлять `TODO.md` только фактическими остатками и проверками; no push,

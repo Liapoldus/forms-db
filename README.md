@@ -1,21 +1,21 @@
 # forms-db
 
-Плагин простых форм Liapoldus v1. Оператор запускает отдельный процесс вручную.
-Core хранит точные JSON-байты настроек и уведомляет плагин через Plugin SDK REST
-`Reload`; плагин сам запрашивает указанное поколение, валидирует свой
+Сервис простых форм Liapoldus v1. Оператор запускает отдельный процесс вручную.
+Core хранит точные JSON-байты настроек и уведомляет сервис через Service SDK REST
+`Reload`; сервис сам запрашивает указанное поколение, валидирует свой
 [`settings.schema.json`](contracts/v1/settings.schema.json), строит candidate
 repository и подтверждает поколение только после успешного переключения.
-`pluginprotocol` используется исключительно для прямых вызовов других плагинов
+`wool` используется исключительно для прямых вызовов других сервисов
 к `forms.submit`, `forms.list` и `forms.delete`. Admin Surface и его JSON
-действия обслуживает Plugin SDK REST по mTLS; `admin.surface.get` не является
+действия обслуживает Service SDK REST по mTLS; `admin.surface.get` не является
 peer capability.
 
 Поддерживаются SQLite, PostgreSQL и MySQL/MariaDB. `memory` оставлен для
 детерминированных локальных тестов и не сохраняет записи. Product submissions
-хранятся в выбранной БД плагина, не в Core SQLite. В `dsn` указывают только
+хранятся в выбранной БД сервиса, не в Core SQLite. В `dsn` указывают только
 opaque secret reference; реальный DSN получается по candidate-generation grant
-через Plugin SDK. `cursorSecretRef` — отдельная ссылка для ключа подписи
-пагинации: плагин запрашивает ключ на каждый `forms.list` и не хранит его в БД.
+через Service SDK. `cursorSecretRef` — отдельная ссылка для ключа подписи
+пагинации: сервис запрашивает ключ на каждый `forms.list` и не хранит его в БД.
 Versioned product contracts находятся в [`contracts/v1`](contracts/v1),
 детали cursor — в
 [`internal/infrastructure/security/contracts/cursor.json`](internal/infrastructure/security/contracts/cursor.json).

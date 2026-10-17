@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 const repository = resolve(import.meta.dirname, '../../..');
 
 describe('forms-db v1 lifecycle ownership', () => {
-  it('builds independently without the retired pluginprotocol lifecycle', () => {
+  it('builds independently without the retired wool lifecycle', () => {
     expect(() => execFileSync('go', ['build', './...'], {
       cwd: repository,
       env: { ...process.env, GOWORK: 'off' },
@@ -14,6 +14,6 @@ describe('forms-db v1 lifecycle ownership', () => {
     })).not.toThrow();
 
     const module = readFileSync(resolve(repository, 'go.mod'), 'utf8');
-    expect(module).toContain('github.com/Liapoldus/plugin-sdk/v2');
+    expect(module).toContain('github.com/Liapoldus/service-sdk/v2');
   }, 120_000);
 });
