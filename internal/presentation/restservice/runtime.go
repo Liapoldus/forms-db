@@ -149,7 +149,7 @@ func presentationContracts(contract sdkinfra.HTTPContract) sdkpresentation.Contr
 	return sdkpresentation.Contracts{
 		ContractVersion:  contract.ContractVersion,
 		IdentityEndpoint: endpoint("identity"), ManifestEndpoint: endpoint("manifest"),
-		ConfigSchemaEndpoint: endpoint("configSchema"), HealthEndpoint: endpoint("health"),
+		ConfigSchemaEndpoint: endpoint("configSchema"), ConfigValidationEndpoint: endpoint("configValidate"), HealthEndpoint: endpoint("health"),
 		ReadyEndpoint: endpoint("ready"), ReloadEndpoint: endpoint("reload"),
 		ArtifactStreamEndpoint: endpoint("artifactStream"),
 		AdminSurfaceEndpoint:   endpoint("adminSurface"), AdminActionEndpoint: endpoint("adminAction"),

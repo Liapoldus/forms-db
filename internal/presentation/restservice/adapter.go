@@ -87,6 +87,17 @@ func (adapter *Adapter) ConfigurationSchema(context.Context) ([]byte, error) {
 	return contracts.SettingsSchema()
 }
 
+func (adapter *Adapter) ValidateConfiguration(ctx context.Context, raw []byte) error {
+	if adapter == nil || ctx.Err() != nil || contracts.ValidateSettings(raw) != nil {
+		return ErrInvalidSettings
+	}
+	_, err := config.Apply(raw)
+	if err != nil {
+		return ErrInvalidSettings
+	}
+	return nil
+}
+
 func (adapter *Adapter) Apply(ctx context.Context, incoming sdkmodels.Configuration) error {
 	if adapter == nil || ctx.Err() != nil || incoming.Validate() != nil {
 		return ErrInvalidSettings

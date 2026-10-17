@@ -643,3 +643,8 @@ storage, release-cohort compatibility или production readiness.
   использовать ту же content DB и модель разрешений.
 - [ ] Утвердить обязательные storage backends для website content и требования
   к миграциям/совместному использованию DB с текущими формами.
+
+
+## Config preflight endpoint — 2026-10-17
+
+- Added a non-mutating settings candidate validator for the new SDK contract; the saved config remains the only source applied to runtime. Go tests, vet and build passed. Commit/push pending.
